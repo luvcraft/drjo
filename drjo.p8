@@ -4,6 +4,7 @@ __lua__
 -- dr jo
 -- by luvcraft
 
+-- round num to the nearest multiple of target
 function roundtonearest(num, target)
 	if(num % target == 0) then
 		return num
@@ -14,6 +15,7 @@ function roundtonearest(num, target)
 	end
 end
 
+-- return num clamped to min and max (inclusive)
 function minmax(num, min, max)
 	if(num < min) then
 		return min
@@ -24,7 +26,20 @@ function minmax(num, min, max)
 	end
 end
 
+-- return whether or not num falls between min and max (inclusive)
+function inrange(num,min,max)
+	max = max or 0
+	
+	if(min < max) do
+		return num >= min and num <= max
+	else
+		return num <= min and num >= max
+	end
+end
+
 boulderfallstate = 8
+max_spr_x = 120
+max_spr_y = 120
 
 -->8
 -- characters
@@ -74,16 +89,101 @@ hero = {
 				self.y = roundtonearest(self.y, 8)
 			end
 		end
+
+		b = self:boulder_check(self.facing)
+		speed = self.speed
+		pushing_speed = self.speed * 0.75
+		-- TODO: decrease speed if digging
 		
-		if(self.facing == 0) 	then self.y-=self.speed
-		elseif(self.facing==1) 	then self.x+=self.speed
-		elseif(self.facing==2) 	then self.y+=self.speed
-		elseif(self.facing==3) 	then self.x-=self.speed
+		if(b != 1) then
+			if(self.facing == 0) then 
+				self.y-=speed
+				-- don't check for pushing boulder vertically
+			elseif(self.facing==2) then 
+				self.y+=speed
+				-- don't check for pushing boulder vertically
+			elseif(self.facing==1) then 
+				if(b != 0) then
+					speed = pushing_speed
+					b.x += speed
+				end
+				self.x+=speed
+			elseif(self.facing==3) then
+				if(b != 0) then
+					speed = pushing_speed
+					b.x -= speed
+				end
+				self.x-=speed
+			end
 		end
 		
-		self.x = minmax(self.x,0,120)
-		self.y = minmax(self.y,0,120)
+		self.x = minmax(self.x,0,max_spr_x)
+		self.y = minmax(self.y,0,max_spr_y)
 		
+	end,
+	
+	-- check to see if there's a boulder or wall immediately in the specified direction
+	-- returns 0 for no boulder, 1 for blocked, and the boulder if it's pushable
+	boulder_check = function(self,dir)
+		if(dir==0) then
+			if(self.y<=0) then
+				return 1
+			else
+				for b in all(boulder) do
+					if(self.x==b.x and inrange( self.y - b.y,8)) then
+						if(b:blocked(dir) or b.state > 0) then
+							return 1
+						else
+							return b
+						end
+					end
+				end
+			end
+		elseif(dir==1) then
+			if(self.x>=max_spr_x) then
+				return 1
+			else
+				for b in all(boulder) do
+					if(self.y==b.y and inrange( b.x - self.x,8)) then
+						if(b:blocked(dir) or b.state > 0) then
+							return 1
+						else
+							return b
+						end
+					end
+				end
+			end
+		elseif(dir==2) then
+			if(self.y>=max_spr_y) then
+				return 1
+			else
+				for b in all(boulder) do
+					if(self.x==b.x and inrange(b.y - self.y,8)) then
+						if(b:blocked(dir) or b.state > 0) then
+							return 1
+						else
+							return b
+						end
+					end
+				end
+			end
+		elseif(dir==3) then
+			if(self.x<=0) then
+				return 1
+			else
+				for b in all(boulder) do
+					if(self.y==b.y and inrange( self.x - b.x,8)) then
+						if(b:blocked(dir) or b.state > 0) then
+							return 1
+						else
+							return b
+						end
+					end
+				end
+			end
+		end
+		
+		return 0
 	end,
 	 
 	draw = function(self)
@@ -100,8 +200,8 @@ hero = {
 		spr(sprite,self.x,self.y,1,1,flip)
 		
 		-- draw hat
-		spr(10,self.x,self.y-2)
-	end 
+		spr(10,self.x,self.y-3)
+	end
 }
 
 boulder_proto = {
@@ -133,6 +233,57 @@ boulder_proto = {
 		else
 			spr(19,self.x,self.y,1,1,true)
 		end
+	end,
+	
+	-- check to see if this boulder is blocked by another boulder or edge of screen
+	blocked = function(self, dir)
+		if(dir==0) then
+			if(self.y<=0) then
+				return true
+			else
+				for b in all(boulder) do
+					if(self != b and self.x==b.x and inrange( self.y - b.y,8)) then
+						self.y = roundtonearest(self.y, 8)
+						return true
+					end
+				end
+			end
+		elseif(dir==1) then
+			if(self.x>=max_spr_x) then
+				return true
+			else
+				for b in all(boulder) do
+					if(self != b and self.y==b.y and inrange( b.x - self.x,8)) then
+						self.x = roundtonearest(self.x, 8)
+						return true
+					end
+				end
+			end
+		elseif(dir==2) then
+			if(self.y>=max_spr_y) then
+				return true
+			else
+				for b in all(boulder) do
+					if(self != b and self.x==b.x and inrange(b.y - self.y,8)) then
+						self.y = roundtonearest(self.y, 8)
+						return true
+					end
+				end
+			end
+		elseif(dir==3) then
+			if(self.x<=0) then
+				return true
+			else
+				for b in all(boulder) do
+					if(self != b and self.y==b.y and inrange( self.x - b.x,8)) then
+						self.x = roundtonearest(self.x, 8)
+						return true
+					end
+				end
+			end
+		end
+		
+		return false
 	end,
 	
 	instantiate = function(self,xpos,ypos)
@@ -186,10 +337,10 @@ function _draw()
 end
 
 __gfx__
-0000000055555555009999000099990000999900009999000099990000999900009999000099990000eeee000000000000000000000000000000000000000000
-00000000335333330999999009999990009f3f00009f3f00009f3f00009f3f00093ff390093ff390002222000000000000000000000000000000000000000000
-00700700335333330999999009999990009fff00009fff00009fff00009fff0009ffff9009ffff90eeeeeeee0000000000000000000000000000000000000000
-00077000335333330999999009999990009ee000009ee000009ee000009ee00009eeee9009eeee90000000000000000000000000000000000000000000000000
+0000000055555555009999000099990000999900009999000099990000999900009999000099990000e22e000000000000000000000000000000000000000000
+00000000335333330999999009999990009f3f00009f3f00009f3f00009f3f00093ff390093ff39000eeee000000000000000000000000000000000000000000
+00700700335333330999999009999990009fff00009fff00009fff00009fff0009ffff9009ffff90ee2222ee0000000000000000000000000000000000000000
+00077000335333330999999009999990009ee000009ee000009ee000009ee00009eeee9009eeee90eeeeeeee0000000000000000000000000000000000000000
 00077000555555550eeeeee00eeeeee000eeef0000eeef0000efe00000efe0000eeeeee00eeeeee0000000000000000000000000000000000000000000000000
 00700700333335330feeeef00feeeef000efe00000efe00000eeef0000eeef000feeeef00feeeef0000000000000000000000000000000000000000000000000
 000000003333353300eeee0000e44e0000eee0000eee4e0000eee0000eeeee0000eeee0000e44e00000000000000000000000000000000000000000000000000
