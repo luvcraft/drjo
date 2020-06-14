@@ -104,7 +104,7 @@ hero = {
 	end 
 }
 
-boulder = {
+boulder_proto = {
 	state = 0,
 	
 	update = function(self)
@@ -133,6 +133,16 @@ boulder = {
 		else
 			spr(19,self.x,self.y,1,1,true)
 		end
+	end,
+	
+	instantiate = function(self,xpos,ypos)
+		t = {}
+		for key, value in pairs(self) do
+			t[key] = value
+		end
+		t.x = (xpos or 0) * 8
+		t.y = (ypos or 0) * 8
+		return t
 	end
 }
 
@@ -140,18 +150,24 @@ boulder = {
 -- main functions
 
 function _init()
-	boulder.x = 5*8
-	boulder.y = 8
+	-- init boulders
+	boulder = {}
+	boulder[1] = boulder_proto:instantiate(5,1)
+	boulder[2] = boulder_proto:instantiate(10,1)
 end
 
 function _update()
 	hero:update()
 	
+	-- clear the block under the hero
 	local herox = roundtonearest(hero.x,8)/8
 	local heroy = roundtonearest(hero.y,8)/8
 	mset(herox,heroy,0)
 	
-	boulder:update()
+	for b in all(boulder) do
+		b:update()
+	end
+	
 end
 
 function _draw()
@@ -160,7 +176,11 @@ function _draw()
 	pal()
 	map()
 	hero:draw()
-	boulder:draw()
+	
+	for b in all(boulder) do
+		b:draw()
+	end
+	
 	cursor(0,0)
 	print("x = "..hero.x.." y = "..hero.y)
 end
