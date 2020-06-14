@@ -42,6 +42,8 @@ boulder_break_state = 10
 max_spr_x = 120
 max_spr_y = 120
 
+debug_text = ""
+
 -->8
 -- characters
 
@@ -211,11 +213,15 @@ boulder_proto = {
 	
 	update = function(self)
 		if(self.state == 0) then
-			if(mget(self.x/8,self.y/8 + 1) == 0) then
+			local x = roundtonearest(self.x,8)
+			if(mget(x/8,self.y/8 + 1) == 0) then
 				-- start wiggling. play start wiggling sfx here
 				self.state = 1
+				self.x = x
+				self.starting_y = self.y
 			end
 		elseif(self.state < boulder_fall_state) then
+			-- wiggle
 			self.state += 0.2
 		elseif(self.state >= boulder_break_state) then
 			-- boulder is breaking
@@ -228,9 +234,13 @@ boulder_proto = {
 			self.y+=1.5
 			
 			if(mget(self.x/8,self.y/8 + 1) != 0) then
-				-- TODO: only break if boulder has fallen more than one tile
-				self.state = boulder_break_state
+				-- falling boulder hit ground
 				self.y -= (self.y % 8)
+				if(self.y - self.starting_y > 8) then
+					self.state = boulder_break_state
+				else
+					self.state = 0
+				end
 			else
 				local b = self:blocked(2)
 				if(b != 0) then
@@ -360,8 +370,8 @@ function _draw()
 		b:draw()
 	end
 	
-	cursor(0,0)
-	print("x = "..hero.x.." y = "..hero.y)
+	print(debug_text,0,0)
+--	print("x = "..hero.x.." y = "..hero.y,0,0)
 end
 
 __gfx__
