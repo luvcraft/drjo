@@ -98,9 +98,10 @@ end
 
 function _draw()
 --	cls(0)
-	map(16)
-	map()
+	map(16,0,0,0,16,16)
+	map(0,0,0,0,16,16)
 	hero:draw()
+	cursor(0,0)
 	print("x = "..hero.x.." y = "..hero.y)
 end
 
