@@ -37,7 +37,8 @@ function inrange(num,min,max)
 	end
 end
 
-boulderfallstate = 8
+boulder_fall_state = 8
+boulder_break_state = 10
 max_spr_x = 120
 max_spr_y = 120
 
@@ -131,7 +132,7 @@ hero = {
 			else
 				for b in all(boulder) do
 					if(self.x==b.x and inrange( self.y - b.y,8)) then
-						if(b:blocked(dir) or b.state > 0) then
+						if(b:blocked(dir) !=0 or b.state > 0) then
 							return 1
 						else
 							return b
@@ -145,7 +146,7 @@ hero = {
 			else
 				for b in all(boulder) do
 					if(self.y==b.y and inrange( b.x - self.x,8)) then
-						if(b:blocked(dir) or b.state > 0) then
+						if(b:blocked(dir) !=0 or b.state > 0) then
 							return 1
 						else
 							return b
@@ -159,7 +160,7 @@ hero = {
 			else
 				for b in all(boulder) do
 					if(self.x==b.x and inrange(b.y - self.y,8)) then
-						if(b:blocked(dir) or b.state > 0) then
+						if(b:blocked(dir) !=0 or b.state > 0) then
 							return 1
 						else
 							return b
@@ -173,7 +174,7 @@ hero = {
 			else
 				for b in all(boulder) do
 					if(self.y==b.y and inrange( self.x - b.x,8)) then
-						if(b:blocked(dir) or b.state > 0) then
+						if(b:blocked(dir) !=0 or b.state > 0) then
 							return 1
 						else
 							return b
@@ -204,6 +205,7 @@ hero = {
 	end
 }
 
+-- prototype behavior for boulders
 boulder_proto = {
 	state = 0,
 	
@@ -213,20 +215,45 @@ boulder_proto = {
 				-- start wiggling. play start wiggling sfx here
 				self.state = 1
 			end
-		elseif(self.state < boulderfallstate) then
+		elseif(self.state < boulder_fall_state) then
 			self.state += 0.2
-		else	-- boulder is falling
+		elseif(self.state >= boulder_break_state) then
+			-- boulder is breaking
+			self.state += 0.2
+			if(self.state > boulder_break_state + 3) then
+				del(boulder,self)
+			end
+		else	
+			-- boulder is falling
 			self.y+=1.5
+			
 			if(mget(self.x/8,self.y/8 + 1) != 0) then
-				self.state = 0
+				-- TODO: only break if boulder has fallen more than one tile
+				self.state = boulder_break_state
 				self.y -= (self.y % 8)
+			else
+				local b = self:blocked(2)
+				if(b != 0) then
+					-- break boulder if it falls on another boulder or bottom of screen
+					self.state = boulder_break_state
+					self.y -= (self.y % 8)
+					if(b != 1) then
+						b.state = boulder_break_state					
+					end
+				end
 			end
 		end
 	end,
 	
 	draw = function(self)
 		stateint = flr(self.state)
-		if(stateint % 2 == 0 or stateint >= boulderfallstate) then
+		if(stateint >= boulder_break_state) then
+			-- boulder is breaking
+			local sprnum = 20 - boulder_break_state + stateint
+			spr(sprnum,self.x-4,self.y)
+			spr(sprnum,self.x+4,self.y,1,1,true)
+		elseif(stateint % 2 == 0 or stateint >= boulder_fall_state) then
+			-- boulder is idle or falling
 			spr(18,self.x,self.y)
 		elseif((stateint-1) % 4 == 0) then
 			spr(19,self.x,self.y)
@@ -236,54 +263,55 @@ boulder_proto = {
 	end,
 	
 	-- check to see if this boulder is blocked by another boulder or edge of screen
+	-- returns 0 for unblocked, 1 for edge of screen, and the boulder if it's a boulder
 	blocked = function(self, dir)
 		if(dir==0) then
 			if(self.y<=0) then
-				return true
+				return 1
 			else
 				for b in all(boulder) do
 					if(self != b and self.x==b.x and inrange( self.y - b.y,8)) then
 						self.y = roundtonearest(self.y, 8)
-						return true
+						return b
 					end
 				end
 			end
 		elseif(dir==1) then
 			if(self.x>=max_spr_x) then
-				return true
+				return 1
 			else
 				for b in all(boulder) do
 					if(self != b and self.y==b.y and inrange( b.x - self.x,8)) then
 						self.x = roundtonearest(self.x, 8)
-						return true
+						return b
 					end
 				end
 			end
 		elseif(dir==2) then
 			if(self.y>=max_spr_y) then
-				return true
+				return 1
 			else
 				for b in all(boulder) do
 					if(self != b and self.x==b.x and inrange(b.y - self.y,8)) then
 						self.y = roundtonearest(self.y, 8)
-						return true
+						return b
 					end
 				end
 			end
 		elseif(dir==3) then
 			if(self.x<=0) then
-				return true
+				return 1
 			else
 				for b in all(boulder) do
 					if(self != b and self.y==b.y and inrange( self.x - b.x,8)) then
 						self.x = roundtonearest(self.x, 8)
-						return true
+						return b
 					end
 				end
 			end
 		end
 		
-		return false
+		return 0
 	end,
 	
 	instantiate = function(self,xpos,ypos)
@@ -303,8 +331,8 @@ boulder_proto = {
 function _init()
 	-- init boulders
 	boulder = {}
-	boulder[1] = boulder_proto:instantiate(5,1)
-	boulder[2] = boulder_proto:instantiate(10,1)
+	add(boulder,boulder_proto:instantiate(5,1))
+	add(boulder,boulder_proto:instantiate(10,1))
 end
 
 function _update()
@@ -345,14 +373,14 @@ __gfx__
 00700700333335330feeeef00feeeef000efe00000efe00000eeef0000eeef000feeeef00feeeef0000000000000000000000000000000000000000000000000
 000000003333353300eeee0000e44e0000eee0000eee4e0000eee0000eeeee0000eeee0000e44e00000000000000000000000000000000000000000000000000
 000000003333353300e44e000000ee0000eeee000ee44ee000eeee000ee44ee000e44e000000ee00000000000000000000000000000000000000000000000000
-00000000555511110049940000049940000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000111155550499994000499994000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-000000001111111104a99a40004a9994000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-000000001111111149999994049999a4000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000555511119aaaaaa909aa9994000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-0000000011115555499999940499aaa9000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000111111119aaaaaa909aa9994000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-0000000011111111049999400049aa40000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000555511110049940000049940000004940000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000111155550499994000499994000049940440000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+000000001111111104a99a40004a999400004a944945000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+000000001111111149999994049999a40004999449a4500045555554000000000000000000000000000000000000000000000000000000000000000000000000
+00000000555511119aaaaaa909aa99940009aaa4499945009999a9a9000000000000000000000000000000000000000000000000000000000000000000000000
+0000000011115555499999940499aaa900049994049a944049a9a9a9000000000000000000000000000000000000000000000000000000000000000000000000
+00000000111111119aaaaaa909aa99940009aaa404a9a9400449a9a4000000000000000000000000000000000000000000000000000000000000000000000000
+0000000011111111049999400049aa4000004994000a440000049490000000000000000000000000000000000000000000000000000000000000000000000000
 __map__
 0101010101010101010101010101010111111111111111111111111111111111000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 0101010101010101010101010101010111111111111111111111111111111111000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
