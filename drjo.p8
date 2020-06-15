@@ -65,7 +65,7 @@ hero = {
 			self:move(2)
 		end
 		
-		if(btnp(4)) then 
+		if(btnp(🅾️) or btnp(❎)) then 
 			if(bomb.state == 0 and bomb.cooldown <= 0) then
 				bomb.x = roundtonearest(self.x,8)/8
 				bomb.y = roundtonearest(self.y,8)/8
