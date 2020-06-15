@@ -37,6 +37,19 @@ function inrange(num,min,max)
 	end
 end
 
+-- generic vector2, instantiated for coins
+vector2 = {
+	instantiate = function(self,xpos,ypos)
+		t = {}
+		for key, value in pairs(self) do
+			t[key] = value
+		end
+		t.x = (xpos or 0)
+		t.y = (ypos or 0)
+		return t
+	end
+}
+
 -- constants
 boulder_fall_state = 8
 boulder_break_state = 10
@@ -342,41 +355,6 @@ crack = {
 	end
 }
 
--- prototype behavior for coin pickup
-coin_proto = {
-	update = function(self)
-	end,
-	
-	draw = function(self)
-		local x = self.x*8
-		local y = self.y*8
-		
-		local frame = flr((time() %1) * 4)
-		
-		if(frame == 0)  then
-			spr(24,x,y)
-		elseif(frame == 1) then
-			spr(25,x,y)
-		elseif(frame == 2) then
-			pal(10,9)
-			spr(24,x,y)
-			pal()
-		else
-			spr(25,x,y,1,1,true)
-		end		
-	end,
-	
-	instantiate = function(self,xpos,ypos)
-		t = {}
-		for key, value in pairs(self) do
-			t[key] = value
-		end
-		t.x = (xpos or 0)
-		t.y = (ypos or 0)
-		return t
-	end
-}
-
 -- prototype behavior for boulders
 boulder_proto = {
 	state = 0,
@@ -505,6 +483,33 @@ boulder_proto = {
 	end
 }
 
+-- draw all coins at once
+draw_coins = function()		
+		local frame = flr((time() %1) * 4)
+				
+		if(frame == 2) then
+			pal(10,9)
+		end
+		
+		for c in all(coin) do
+			local x = c.x*8
+			local y = c.y*8
+
+			if(frame == 0)  then
+				spr(24,x,y)
+			elseif(frame == 1) then
+				spr(25,x,y)
+			elseif(frame == 2) then
+				spr(24,x,y)
+			else
+				spr(25,x,y,1,1,true)
+			end
+	
+		end
+		
+		pal()
+	end
+
 -->8
 -- main functions
 
@@ -515,10 +520,10 @@ function _init()
 	add(boulder,boulder_proto:instantiate(10,1))
 	
 	coin = {}
-	add(coin,coin_proto:instantiate(4,10))	
-	add(coin,coin_proto:instantiate(5,10))	
-	add(coin,coin_proto:instantiate(4,11))	
-	add(coin,coin_proto:instantiate(5,11))	
+	add(coin,vector2:instantiate(4,10))	
+	add(coin,vector2:instantiate(5,10))	
+	add(coin,vector2:instantiate(4,11))	
+	add(coin,vector2:instantiate(5,11))	
 end
 
 function _update()
@@ -544,10 +549,8 @@ function _draw()
 	crack:draw()
 	map()
 	
-	for c in all(coin) do
-		c:draw()
-	end
-	
+	draw_coins()
+		
 	bomb:draw()
 	hero:draw()
 	
