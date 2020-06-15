@@ -65,7 +65,7 @@ hero = {
 			self:move(2)
 		end
 		
-		if(btnp(5)) then 
+		if(btnp(4)) then 
 			if(bomb.state == 0 and bomb.cooldown <= 0) then
 				bomb.x = roundtonearest(self.x,8)/8
 				bomb.y = roundtonearest(self.y,8)/8
@@ -106,8 +106,10 @@ hero = {
 
 		b = self:boulder_check(self.facing)
 		speed = self.speed
-		pushing_speed = self.speed * 0.75
-		-- TODO: decrease speed if digging
+		pushing_speed = self.speed * 0.7
+		if(self:digging(dir)) then
+			speed = self.speed * 0.7
+		end
 		
 		if(b != 1) then
 			if(self.facing == 0) then 
@@ -134,6 +136,17 @@ hero = {
 		self.x = minmax(self.x,0,max_spr_x)
 		self.y = minmax(self.y,0,max_spr_y)
 		
+	end,
+	
+	-- returns true if hero is digging vs moving unobstructed
+	digging = function(self, dir)
+		if(dir==1) then
+			return mget((self.x/8)+1,self.y/8) > 0
+		elseif(dir==2) then
+			return mget((self.x/8),self.y/8+1) > 0
+		else
+			return mget((self.x/8),self.y/8) > 0
+		end
 	end,
 	
 	-- check to see if there's a boulder or wall immediately in the specified direction
