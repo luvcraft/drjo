@@ -52,6 +52,7 @@ end
 -- constants
 boulder_fall_state = 8
 boulder_break_state = 10
+max_boulders = 6
 
 map_w = 12
 map_h = 15
@@ -523,6 +524,7 @@ draw_coins = function()
 	pal()
 end
 
+-- add a cluster of 4 coins, with top left at specified tile
 add_coin_cluster = function(x,y)
 	add(coin,from_xy(x,y))	
 	add(coin,from_xy(x+1,y))	
@@ -530,28 +532,41 @@ add_coin_cluster = function(x,y)
 	add(coin,from_xy(x+1,y+1))
 end
 
+-- place the boulders and the crack
 place_boulders = function()
 	local tiles = {}
+	local crack_tiles = {}
 	
 	for x=1,map_w-2 do
-		for y=0,map_h/2 do
+		for y=0,map_h do
 			if(mget(x+current_map_x,y+current_map_y) != 0 and mget(x+current_map_x,y+current_map_y+1) != 0) then
-				add(tiles,from_xy(x,y))
+				add(crack_tiles,from_xy(x,y))
+				if(y<map_h/2) then
+					add(tiles,from_xy(x,y))
+				end
 			end
 		end
 	end
+
+	-- place crack in a random position
+	local t = rnd(crack_tiles)
+	local pos = to_xy(t)
+	crack.x = pos.x
+	crack.y = pos.y
+	
+--	debug_text = "crack tile at "..crack.x..","..crack.y
 
 	for c in all(coin) do
 		del(tiles,c)
 	end
 			
-	for i = 1,6 do
-		local t = rnd(tiles)
-		local pos = to_xy(t)
+	for i = 1,max_boulders do
+		t = rnd(tiles)
+		pos = to_xy(t)
 		add(boulder,boulder_proto:instantiate(pos.x,pos.y))
-		-- delete this pos so it won't get used again
+		-- delete this tile so it won't get used again
 		del(tiles,t)
-		-- also delete the poses adjacent to this one
+		-- also delete the tiles adjacent to this one
 		del(tiles,t-1)
 		del(tiles,t+1)
 		del(tiles,t-16)
@@ -620,7 +635,7 @@ function _draw()
 	
 	print("score:\n"..score,(map_w*8)+3,3)
 	
-	print(debug_text,0,0)
+	print(debug_text,8,-8)
 --	print("x = "..hero.x.." y = "..hero.y,0,0)
 end
 
