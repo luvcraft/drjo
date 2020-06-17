@@ -37,18 +37,17 @@ function inrange(num,min,max)
 	end
 end
 
--- generic vector2, instantiated for coins
-vector2 = {
-	instantiate = function(self,xpos,ypos)
-		t = {}
-		for key, value in pairs(self) do
-			t[key] = value
-		end
-		t.x = (xpos or 0)
-		t.y = (ypos or 0)
-		return t
-	end
-}
+function to_xy(number) 
+	local t = {}
+	t.x = number % 16
+	t.y = flr(number / 16)
+	
+	return t
+end
+
+function from_xy(x,y) 
+	return (flr(y) * 16 + flr(x))
+end
 
 -- constants
 boulder_fall_state = 8
@@ -162,7 +161,8 @@ hero = {
 		local tile_y = roundtonearest(self.y, 8)/8
 		
 		for c in all(coin) do
-			if(tile_x == c.x and tile_y == c.y) then
+			local pos = to_xy(c)
+			if(tile_x == pos.x and tile_y == pos.y) then
 				-- collect coin
 				-- put collect coin sfx here
 				score += 5
@@ -505,8 +505,8 @@ draw_coins = function()
 	end
 	
 	for c in all(coin) do
-		local x = c.x*8
-		local y = c.y*8
+		local x = to_xy(c).x*8
+		local y = to_xy(c).y*8
 
 		if(frame == 0)  then
 			spr(24,x,y)
@@ -524,10 +524,10 @@ draw_coins = function()
 end
 
 add_coin_cluster = function(x,y)
-	add(coin,vector2:instantiate(x,y))	
-	add(coin,vector2:instantiate(x+1,y))	
-	add(coin,vector2:instantiate(x,y+1))	
-	add(coin,vector2:instantiate(x+1,y+1))
+	add(coin,from_xy(x,y))	
+	add(coin,from_xy(x+1,y))	
+	add(coin,from_xy(x,y+1))	
+	add(coin,from_xy(x+1,y+1))
 end
 
 place_boulders = function()
@@ -536,24 +536,26 @@ place_boulders = function()
 	for x=1,map_w-2 do
 		for y=0,map_h/2 do
 			if(mget(x+current_map_x,y+current_map_y) != 0 and mget(x+current_map_x,y+current_map_y+1) != 0) then
-				local found = false
-				for c in all(coin) do
-					if(c.x == x and c.y == y) then
-						found = true
-						break
-					end
-				end
-				if(found == false) then
-					add(tiles,vector2:instantiate(x,y))
-				end
+				add(tiles,from_xy(x,y))
 			end
 		end
+	end
+
+	for c in all(coin) do
+		del(tiles,c)
 	end
 			
 	for i = 1,6 do
 		local t = rnd(tiles)
-		add(boulder,boulder_proto:instantiate(t.x,t.y))
+		local pos = to_xy(t)
+		add(boulder,boulder_proto:instantiate(pos.x,pos.y))
+		-- delete this pos so it won't get used again
 		del(tiles,t)
+		-- also delete the poses adjacent to this one
+		del(tiles,t-1)
+		del(tiles,t+1)
+		del(tiles,t-16)
+		del(tiles,t+16)
 	end
 end
 
