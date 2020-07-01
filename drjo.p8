@@ -30,13 +30,14 @@ end
 function inrange(num,min,max)
 	max = max or 0
 	
-	if(min < max) do
+	if(min < max) then
 		return num >= min and num <= max
 	else
 		return num <= min and num >= max
 	end
 end
 
+-- converts an int to a vector2
 function to_xy(number) 
 	local t = {}
 	t.x = number % 16
@@ -45,8 +46,73 @@ function to_xy(number)
 	return t
 end
 
+-- converts a vector2 to a single int
 function from_xy(x,y) 
 	return (flr(y) * 16 + flr(x))
+end
+
+-- check to see if there's a boulder or wall immediately in the specified direction from the character
+-- returns 0 for no boulder, 1 for blocked, and the boulder if it's pushable
+function boulder_check(character, dir)
+	if(dir==0) then
+		if(character.y<=0) then
+			return 1
+		else
+			for b in all(boulder) do
+				if(character.x==b.x and inrange( character.y - b.y,8)) then
+					if(b:blocked(dir) !=0 or b.state > 0) then
+						return 1
+					else
+						return b
+					end
+				end
+			end
+		end
+	elseif(dir==1) then
+		if(character.x>=max_spr_x) then
+			return 1
+		else
+			for b in all(boulder) do
+				if(character.y==b.y and inrange( b.x - character.x,8)) then
+					if(b:blocked(dir) !=0 or b.state > 0) then
+						return 1
+					else
+						return b
+					end
+				end
+			end
+		end
+	elseif(dir==2) then
+		if(character.y>=max_spr_y) then
+			return 1
+		else
+			for b in all(boulder) do
+				if(character.x==b.x and inrange(b.y - character.y,8)) then
+					if(b:blocked(dir) !=0 or b.state > 0) then
+						return 1
+					else
+						return b
+					end
+				end
+			end
+		end
+	elseif(dir==3) then
+		if(character.x<=0) then
+			return 1
+		else
+			for b in all(boulder) do
+				if(character.y==b.y and inrange( character.x - b.x,8)) then
+					if(b:blocked(dir) !=0 or b.state > 0) then
+						return 1
+					else
+						return b
+					end
+				end
+			end
+		end
+	end
+	
+	return 0
 end
 
 -- constants
@@ -126,9 +192,9 @@ hero = {
 			end
 		end
 
-		b = self:boulder_check(self.facing)
-		speed = self.speed
-		pushing_speed = self.speed * 0.7
+		local b = boulder_check(self, self.facing)
+		local speed = self.speed
+		local pushing_speed = self.speed * 0.7
 		if(self:digging(dir)) then
 			speed = self.speed * 0.7
 		end
@@ -172,7 +238,7 @@ hero = {
 		end
 		
 		if(crack.state == 1 and tile_x == crack.x and tile_y == crack.y) then
-			-- TODO: collect treasure
+			-- TODO: collect treasure, swap boulders and monsters
 			score += 100
 			crack.state = 2
 		end		
@@ -189,70 +255,6 @@ hero = {
 		end
 	end,
 	
-	-- check to see if there's a boulder or wall immediately in the specified direction
-	-- returns 0 for no boulder, 1 for blocked, and the boulder if it's pushable
-	boulder_check = function(self,dir)
-		if(dir==0) then
-			if(self.y<=0) then
-				return 1
-			else
-				for b in all(boulder) do
-					if(self.x==b.x and inrange( self.y - b.y,8)) then
-						if(b:blocked(dir) !=0 or b.state > 0) then
-							return 1
-						else
-							return b
-						end
-					end
-				end
-			end
-		elseif(dir==1) then
-			if(self.x>=max_spr_x) then
-				return 1
-			else
-				for b in all(boulder) do
-					if(self.y==b.y and inrange( b.x - self.x,8)) then
-						if(b:blocked(dir) !=0 or b.state > 0) then
-							return 1
-						else
-							return b
-						end
-					end
-				end
-			end
-		elseif(dir==2) then
-			if(self.y>=max_spr_y) then
-				return 1
-			else
-				for b in all(boulder) do
-					if(self.x==b.x and inrange(b.y - self.y,8)) then
-						if(b:blocked(dir) !=0 or b.state > 0) then
-							return 1
-						else
-							return b
-						end
-					end
-				end
-			end
-		elseif(dir==3) then
-			if(self.x<=0) then
-				return 1
-			else
-				for b in all(boulder) do
-					if(self.y==b.y and inrange( self.x - b.x,8)) then
-						if(b:blocked(dir) !=0 or b.state > 0) then
-							return 1
-						else
-							return b
-						end
-					end
-				end
-			end
-		end
-		
-		return 0
-	end,
-	 
 	draw = function(self)
 		local frame = flr((self.x + self.y)/2) % 4
 		local flip = (self.facing == 3) or (self.facing != 1 and frame == 3)
@@ -268,6 +270,125 @@ hero = {
 		
 		-- draw hat
 		spr(10,self.x,self.y-3)
+	end
+}
+
+-- prototype behavior for monsters
+monster_proto = {
+	facing = 0,
+	speed = 1,
+	state = 0,
+
+	update = function(self)
+		if(self.state == 0) then
+			self:move()
+		end
+	end,
+	
+	move = function(self)	
+		local b = boulder_check(self, self.facing)
+		local speed = self.speed
+		local pushing_speed = self.speed * 0.7
+		
+		if(flr(self.x%8) == 0 and flr(self.y%8) == 0) then
+			local potential_directions = {}
+			for i=0,3 do
+				if(self:wallcheck(i) == 0) then
+					-- if direction is clear, add it to potential list
+					add(potential_directions, i)
+					if(i == self.facing) then
+						-- if already facing this direction, add it to potential list again x2
+						add(potential_directions, i)
+						add(potential_directions, i)
+					end
+					if(i != (self.facing + 2) % 4) then
+						-- if direction is NOT the opposite of facing, add it again x2
+						add(potential_directions, i)
+						add(potential_directions, i)
+					end
+				end
+			end
+
+			debug_text = "pd = "
+			for d in all(potential_directions) do
+				debug_text = debug_text..d.." "
+			end
+			
+			self.facing = rnd(potential_directions)
+		end	
+
+		if(b != 1) then
+			if(self.facing == 0) then 
+				self.y-=speed
+				-- don't check for pushing boulder vertically
+			elseif(self.facing==2) then 
+				self.y+=speed
+				-- don't check for pushing boulder vertically
+			elseif(self.facing==1) then 
+				if(b != 0) then
+					speed = pushing_speed
+					b.x += speed
+				end
+				self.x+=speed
+			elseif(self.facing==3) then
+				if(b != 0) then
+					speed = pushing_speed
+					b.x -= speed
+				end
+				self.x-=speed
+			end
+		end
+		
+		self.x = minmax(self.x,0,max_spr_x)
+		self.y = minmax(self.y,0,max_spr_y)
+		
+		local tile_x = roundtonearest(self.x, 8)/8
+		local tile_y = roundtonearest(self.y, 8)/8
+	end,
+	
+	-- check for a wall in the specified direction
+	-- returns 0 for unblocked, 1 for a wall, or 2 for the edge of the screen
+	wallcheck = function(self, dir)
+		local x = self.x / 8
+		local y = self.y / 8
+		
+		if(dir == 0) then
+			y -= 1
+		elseif(dir == 1) then
+			x += 1
+		elseif(dir == 2) then
+			y += 1
+		elseif(dir == 3) then
+			x -= 1
+		end
+		
+		if(x < 0 or y < 0) then
+			return 2
+		elseif(x >= map_w or y >= map_h) then
+			return 2
+		else
+			if(mget(x,y) > 0) then
+				return 1
+			else
+				return 0
+			end
+		end
+	end,
+	
+	draw = function(self)
+		spr(36,self.x,self.y)
+	end,
+	
+	instantiate = function(self,xpos,ypos)
+		t = {}
+		for key, value in pairs(self) do
+			t[key] = value
+		end
+		t.x = (xpos or 0) * 8
+		t.y = (ypos or 0) * 8
+		t.facing = flr(rnd(3))
+		
+		return t
 	end
 }
 
@@ -563,7 +684,7 @@ place_boulders = function()
 	for i = 1,max_boulders do
 		t = rnd(tiles)
 		pos = to_xy(t)
-		add(boulder,boulder_proto:instantiate(pos.x,pos.y))
+		add(boulder, boulder_proto:instantiate(pos.x,pos.y))
 		-- delete this tile so it won't get used again
 		del(tiles,t)
 		-- also delete the tiles adjacent to this one
@@ -580,6 +701,7 @@ end
 function _init()
 	coin = {}
 	boulder = {}
+	monster = {}
 
 	camera(0,-8)
 	
@@ -597,6 +719,10 @@ function _init()
 	end
 	
 	place_boulders()
+	
+	add(monster, monster_proto:instantiate(5,5))
+	add(monster, monster_proto:instantiate(5,5))
+	add(monster, monster_proto:instantiate(5,5))
 end
 
 function _update()
@@ -609,6 +735,10 @@ function _update()
 	local heroy = roundtonearest(hero.y,8)/8
 	mset(herox,heroy,0)
 	
+	for m in all(monster) do
+		m:update()
+	end
+
 	for b in all(boulder) do
 		b:update()
 	end
@@ -628,6 +758,10 @@ function _draw()
 		
 	bomb:draw()
 	hero:draw()
+	
+	for m in all(monster) do
+		m:draw()
+	end
 	
 	for b in all(boulder) do
 		b:draw()
@@ -650,12 +784,20 @@ __gfx__
 000000003333353300e44e000000ee0000eeee000ee44ee000eeee000ee44ee000e44e000000ee00000000000000000000000000000000000000000000000000
 00000000555511110049940000049940000004940000000000000000000000000000000000000000000000000055550000000000000000000000000000000000
 000000001111555504999940004999940000499404400000000000000055550000999900000990000001000005111150009aa900000000000000000000000000
-000000001111111104a99a40004a999400004a94494500000000000005665550099aa990009aa900000010005111111500999900000000000000000000000000
-000000001111111149999994049999a40004999449a45000455555540565555009aaaa900099a900001100005111111500999900000000000000000000000000
-00000000555511119aaaaaa909aa99940009aaa4499945009999a9a90555555009aaaa900099a900000011005111111500099000000000000000000000000000
-0000000011115555499999940499aaa900049994049a944049a9a9a905555550099aa990009aa900000100005111111500099000000000000000000000000000
+000000001111111104a99a40004a999400004a94494500000000000005665550099a9990009aa900000010005111111500999900000000000000000000000000
+000000001111111149999994049999a40004999449a45000455555540565555009a99a900099a900001100005111111500999900000000000000000000000000
+00000000555511119aaaaaa909aa99940009aaa4499945009999a9a90555555009a99a900099a900000011005111111500099000000000000000000000000000
+0000000011115555499999940499aaa900049994049a944049a9a9a9055555500999a990009aa900000100005111111500099000000000000000000000000000
 00000000111111119aaaaaa909aa99940009aaa404a9a9400449a9a4005555000099990000099000000010005111111500999900000000000000000000000000
 0000000011111111049999400049aa4000004994000a440000049490000000000000000000000000000000000555555000000000000000000000000000000000
+00000000000000000000000000000000008888000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000088888800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+000000000000000000000000000000000888e8800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000088888800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000008888000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000008888000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000008888000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000008888800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 __map__
 1111111111111111111111111111111111111111111111110101010000000000010101010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 1111111111111111111111111111111111111111111111111801010101000101010101010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
