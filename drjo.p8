@@ -51,6 +51,22 @@ function from_xy(x,y)
 	return (flr(y) * 16 + flr(x))
 end
 
+-- whether or not the array contains the specified value
+function contains(array, value)
+	for v in all(array) do
+		if(v == value) then
+			return true
+		end
+	end
+	
+	return false
+end
+
+-- whether or not the array does NOT contain the specified value
+function not_contains(array, value)
+	return contains(array,value) == false
+end
+
 -- check to see if there's a boulder or wall immediately in the specified direction from the character
 -- returns 0 for no boulder, 1 for blocked, and the boulder if it's pushable
 function boulder_check(character, dir)
@@ -134,7 +150,7 @@ score = 0
 debug_text = ""
 
 -->8
--- characters
+-- hero
 
 hero = {
 	x=5 * 8, 
@@ -273,11 +289,19 @@ hero = {
 	end
 }
 
+-->8
+-- monster
+
 -- prototype behavior for monsters
 monster_proto = {
 	facing = 0,
 	speed = 1,
 	state = 0,
+	movestyle = 0,
+	-- movestyle
+	-- 0 = erratic
+	-- 1 = can only reverse if hit a wall
+	-- 2 = can only reverse if hit a dead end
 
 	update = function(self)
 		if(self.state == 0) then
@@ -286,14 +310,23 @@ monster_proto = {
 	end,
 	
 	move = function(self)	
-		local b = boulder_check(self, self.facing)
 		local speed = self.speed
 		local pushing_speed = self.speed * 0.7
+		local reverse_facing = (self.facing + 2) % 4 -- opposite direction from facing
 		
 		if(flr(self.x%8) == 0 and flr(self.y%8) == 0) then
 			local potential_directions = {}
+			local available_directions = {}
 			for i=0,3 do
 				if(self:wallcheck(i) == 0) then
+					add(available_directions,i)
+				end
+			end
+			
+			if(self.movestyle == 0) then
+				-- erratic movestyle. 
+				-- Can reverse at any time, but less likely than other moves					
+				for i in all(available_directions) do
 					-- if direction is clear, add it to potential list
 					add(potential_directions, i)
 					if(i == self.facing) then
@@ -301,21 +334,34 @@ monster_proto = {
 						add(potential_directions, i)
 						add(potential_directions, i)
 					end
-					if(i != (self.facing + 2) % 4) then
+					if(i != reverse_facing) then
 						-- if direction is NOT the opposite of facing, add it again x2
 						add(potential_directions, i)
 						add(potential_directions, i)
 					end
 				end
+					
+			elseif (self.movestyle == 1) then
+				-- movestyle 1 = can only reverse if hit a wall, but can turn
+
+				if(contains(available_direction,self.facing)) then
+					del(available_directions,reverse_facing)
+				end
+				potential_directions = available_directions				
+				
+			elseif (self.movestyle == 2) then
+				-- movestyle 2 = can only reverse if hit a dead end
+				
+				if(#available_directions > 1) then
+					del(available_directions,reverse_facing)
+				end
+				potential_directions = available_directions
 			end
 
-			debug_text = "pd = "
-			for d in all(potential_directions) do
-				debug_text = debug_text..d.." "
-			end
-			
 			self.facing = rnd(potential_directions)
 		end	
+
+		local b = boulder_check(self, self.facing)
 
 		if(b != 1) then
 			if(self.facing == 0) then 
@@ -379,7 +425,7 @@ monster_proto = {
 		spr(36,self.x,self.y)
 	end,
 	
-	instantiate = function(self,xpos,ypos)
+	instantiate = function(self,xpos,ypos,movestyle)
 		t = {}
 		for key, value in pairs(self) do
 			t[key] = value
@@ -387,10 +433,52 @@ monster_proto = {
 		t.x = (xpos or 0) * 8
 		t.y = (ypos or 0) * 8
 		t.facing = flr(rnd(3))
+		t.movestyle = movestyle
 		
 		return t
 	end
 }
+
+-->8
+-- coins
+
+-- draw all coins at once
+draw_coins = function()		
+	local frame = flr((time() %1) * 4)
+			
+	if(frame == 2) then
+		pal(10,9)
+	end
+	
+	for c in all(coin) do
+		local x = to_xy(c).x*8
+		local y = to_xy(c).y*8
+
+		if(frame == 0)  then
+			spr(24,x,y)
+		elseif(frame == 1) then
+			spr(25,x,y)
+		elseif(frame == 2) then
+			spr(24,x,y)
+		else
+			spr(25,x,y,1,1,true)
+		end
+
+	end
+	
+	pal()
+end
+
+-- add a cluster of 4 coins, with top left at specified tile
+add_coin_cluster = function(x,y)
+	add(coin,from_xy(x,y))	
+	add(coin,from_xy(x+1,y))	
+	add(coin,from_xy(x,y+1))	
+	add(coin,from_xy(x+1,y+1))
+end
+
+-->8
+-- other objects
 
 -- behavior for the bomb
 bomb = {
@@ -618,41 +706,6 @@ boulder_proto = {
 	end
 }
 
--- draw all coins at once
-draw_coins = function()		
-	local frame = flr((time() %1) * 4)
-			
-	if(frame == 2) then
-		pal(10,9)
-	end
-	
-	for c in all(coin) do
-		local x = to_xy(c).x*8
-		local y = to_xy(c).y*8
-
-		if(frame == 0)  then
-			spr(24,x,y)
-		elseif(frame == 1) then
-			spr(25,x,y)
-		elseif(frame == 2) then
-			spr(24,x,y)
-		else
-			spr(25,x,y,1,1,true)
-		end
-
-	end
-	
-	pal()
-end
-
--- add a cluster of 4 coins, with top left at specified tile
-add_coin_cluster = function(x,y)
-	add(coin,from_xy(x,y))	
-	add(coin,from_xy(x+1,y))	
-	add(coin,from_xy(x,y+1))	
-	add(coin,from_xy(x+1,y+1))
-end
-
 -- place the boulders and the crack
 place_boulders = function()
 	local tiles = {}
@@ -720,9 +773,9 @@ function _init()
 	
 	place_boulders()
 	
-	add(monster, monster_proto:instantiate(5,5))
-	add(monster, monster_proto:instantiate(5,5))
-	add(monster, monster_proto:instantiate(5,5))
+	add(monster, monster_proto:instantiate(5,5,2))
+--	add(monster, monster_proto:instantiate(5,5,1))
+--	add(monster, monster_proto:instantiate(5,5,1))
 end
 
 function _update()
@@ -770,7 +823,6 @@ function _draw()
 	print("score:\n"..score,(map_w*8)+3,3)
 	
 	print(debug_text,8,-8)
---	print("x = "..hero.x.." y = "..hero.y,0,0)
 end
 
 __gfx__
