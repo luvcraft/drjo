@@ -27,7 +27,7 @@ function minmax(num, min, max)
 end
 
 -- return whether or not num falls between min and max (inclusive)
-function inrange(num,min,max)
+function inrange(num, min, max)
 	max = max or 0
 	
 	if(min < max) then
@@ -136,6 +136,12 @@ boulder_fall_state = 8
 boulder_break_state = 10
 max_boulders = 6
 
+-- max time between coins in a row
+coin_countdown_max = 20
+
+-- dying time (in frames) at which game resets / game overs
+done_dying = 100
+
 map_w = 12
 map_h = 15
 max_spr_x = (map_w-1) * 8
@@ -146,6 +152,8 @@ current_map_x = 12 + 12
 current_map_y = 0
 
 score = 0
+coin_countdown = 0
+coins_in_a_row = 0
 
 debug_text = ""
 
@@ -157,8 +165,14 @@ hero = {
 	y=max_spr_y,
 	facing=1,
 	speed=1,
+	dying=0,
  
 	update = function(self)
+		if(self.dying > 0) then
+			self.dying+=1
+			return
+		end
+	
 		if (btn(0)) then
 			self:move(3)
 		elseif (btn(1)) then 
@@ -177,7 +191,7 @@ hero = {
 			elseif(bomb.state == 1) then
 				bomb:explode()
 			end
-		end
+		end		
 	end,
 	
 	move = function(self, dir)
@@ -247,12 +261,15 @@ hero = {
 			local pos = to_xy(c)
 			if(tile_x == pos.x and tile_y == pos.y) then
 				-- collect coin
-				-- put collect coin sfx here
-				score += 5
+				
+				-- TODO: put collect coin sfx here
+				coins_in_a_row += 1
+				coin_countdown = coin_countdown_max
+				score += 5 + (coins_in_a_row * 5)
 				del(coin,c)
 			end
 		end
-		
+				
 		if(crack.state == 1 and tile_x == crack.x and tile_y == crack.y) then
 			-- TODO: collect treasure, swap boulders and monsters
 			score += 100
@@ -271,21 +288,45 @@ hero = {
 		end
 	end,
 	
-	draw = function(self)
-		local frame = flr((self.x + self.y)/2) % 4
-		local flip = (self.facing == 3) or (self.facing != 1 and frame == 3)
-		local sprite = 4+frame
-		
-		if(self.facing==0) then
-			sprite = 2 + (frame % 2)
-		elseif(self.facing==2) then
-			sprite = 8 + (frame % 2)
+	-- start dying
+	die = function(self)
+		if(self.dying < 1) then
+			self.dying = 1
 		end
-		
-		spr(sprite,self.x,self.y,1,1,flip)
-		
-		-- draw hat
-		spr(10,self.x,self.y-3)
+	end,
+	
+	draw = function(self)
+		if(self.dying < 1) then	
+			-- normal
+			local frame = flr((self.x + self.y)/2) % 4
+			local flip = (self.facing == 3) or (self.facing != 1 and frame == 3)
+			local sprite = 4+frame
+			
+			if(self.facing==0) then
+				sprite = 2 + (frame % 2)
+			elseif(self.facing==2) then
+				sprite = 8 + (frame % 2)
+			end
+			
+			spr(sprite,self.x,self.y,1,1,flip)
+			
+			-- draw hat
+			spr(10,self.x,self.y-3)
+		else
+			-- dying
+			local frame = flr((self.dying - 1) / 10)
+			if(frame < 6) then
+				if((frame % 2) == 0) then
+					spr(10,self.x,self.y-2 + frame)
+				elseif(frame == 3) then
+					spr(11,self.x,self.y-2 + frame, 1, 1, true)
+				else
+					spr(11,self.x,self.y-2 + frame)
+				end
+			else
+				spr(10,self.x,self.y+4)
+			end
+		end
 	end
 }
 
@@ -297,15 +338,26 @@ monster_proto = {
 	facing = 0,
 	speed = 1,
 	state = 0,
+	-- state
+	--- 0 = normal
+	--- 1 = blown up
+	--- 2 = squished
 	movestyle = 0,
 	-- movestyle
-	-- 0 = erratic
-	-- 1 = can only reverse if hit a wall
-	-- 2 = can only reverse if hit a dead end
+	--- 0 = erratic
+	--- 1 = can only reverse if hit a wall
+	--- 2 = can only reverse if hit a dead end
 
 	update = function(self)
 		if(self.state == 0) then
 			self:move()
+			
+			-- if this monster has caught the hero, hero dies
+			if(self.x == hero.x and inrange(self.y-hero.y,-4,4)) then
+				hero:die()
+			elseif(self.y == hero.y and inrange(self.x-hero.x,-4,4)) then
+				hero:die()
+			end
 		end
 	end,
 	
@@ -358,8 +410,12 @@ monster_proto = {
 				potential_directions = available_directions
 			end
 
-			self.facing = rnd(potential_directions)
-		end	
+			if(#potential_directions>0) then
+				self.facing = rnd(potential_directions)
+			else
+				self.facing = 4
+			end
+		end
 
 		local b = boulder_check(self, self.facing)
 
@@ -662,7 +718,7 @@ boulder_proto = {
 				return 1
 			else
 				for b in all(boulder) do
-					if(self != b and abs(self.y-b.y) < 8 and inrange( b.x - self.x,8)) then
+					if(self != b and abs(self.y-b.y) < 8 and inrange(b.x - self.x,8)) then
 						self.x = roundtonearest(self.x, 8)
 						return b
 					end
@@ -684,7 +740,7 @@ boulder_proto = {
 				return 1
 			else
 				for b in all(boulder) do
-					if(self != b and abs(self.y-b.y) < 8 and inrange( self.x - b.x,8)) then
+					if(self != b and abs(self.y-b.y) < 8 and inrange(self.x - b.x,8)) then
 						self.x = roundtonearest(self.x, 8)
 						return b
 					end
@@ -748,6 +804,18 @@ place_boulders = function()
 	end
 end
 
+-- reset the level. Called after hero dies
+function reset_level()
+	hero.dying = 0
+	hero.x=5 * 8
+	hero.y=max_spr_y
+	
+	monster = {}
+	add(monster, monster_proto:instantiate(5,5,0))
+	add(monster, monster_proto:instantiate(5,5,1))
+	add(monster, monster_proto:instantiate(5,5,2))
+end
+
 -->8
 -- main functions
 
@@ -772,10 +840,11 @@ function _init()
 	end
 	
 	place_boulders()
+		
+	coin_countdown = 0
+	coins_in_a_row = 0
 	
-	add(monster, monster_proto:instantiate(5,5,2))
---	add(monster, monster_proto:instantiate(5,5,1))
---	add(monster, monster_proto:instantiate(5,5,1))
+	reset_level()
 end
 
 function _update()
@@ -788,12 +857,24 @@ function _update()
 	local heroy = roundtonearest(hero.y,8)/8
 	mset(herox,heroy,0)
 	
-	for m in all(monster) do
-		m:update()
-	end
+	if(hero.dying < 1) then
+		for m in all(monster) do
+			m:update()
+		end
 
-	for b in all(boulder) do
-		b:update()
+		for b in all(boulder) do
+			b:update()
+		end
+	elseif(hero.dying >= done_dying) then
+		reset_level()
+	end
+	
+	-- update "coins in a row"
+	if(coins_in_a_row > 0) then
+		coin_countdown -= 1
+		if(coin_countdown < 0) then
+			coins_in_a_row = 0
+		end
 	end
 	
 end
@@ -810,7 +891,6 @@ function _draw()
 	draw_coins()
 		
 	bomb:draw()
-	hero:draw()
 	
 	for m in all(monster) do
 		m:draw()
@@ -819,6 +899,8 @@ function _draw()
 	for b in all(boulder) do
 		b:draw()
 	end
+
+	hero:draw()
 	
 	print("score:\n"..score,(map_w*8)+3,3)
 	
@@ -826,11 +908,11 @@ function _draw()
 end
 
 __gfx__
-0000000055555555009999000099990000999900009999000099990000999900009999000099990000e22e000000000000000000000000000000000000000000
-00000000335333330999999009999990009f3f00009f3f00009f3f00009f3f00093ff390093ff39000eeee000000000000000000000000000000000000000000
-00700700335333330999999009999990009fff00009fff00009fff00009fff0009ffff9009ffff90ee2222ee0000000000000000000000000000000000000000
-00077000335333330999999009999990009ee000009ee000009ee000009ee00009eeee9009eeee90eeeeeeee0000000000000000000000000000000000000000
-00077000555555550eeeeee00eeeeee000eeef0000eeef0000efe00000efe0000eeeeee00eeeeee0000000000000000000000000000000000000000000000000
+0000000055555555009999000099990000999900009999000099990000999900009999000099990000e22e0000e2000000000000000000000000000000000000
+00000000335333330999999009999990009f3f00009f3f00009f3f00009f3f00093ff390093ff39000eeee0000ee2e0000000000000000000000000000000000
+00700700335333330999999009999990009fff00009fff00009fff00009fff0009ffff9009ffff90ee2222eeee22ee0000000000000000000000000000000000
+00077000335333330999999009999990009ee000009ee000009ee000009ee00009eeee9009eeee90eeeeeeee0eee22ee00000000000000000000000000000000
+00077000555555550eeeeee00eeeeee000eeef0000eeef0000efe00000efe0000eeeeee00eeeeee000000000000eeee000000000000000000000000000000000
 00700700333335330feeeef00feeeef000efe00000efe00000eeef0000eeef000feeeef00feeeef0000000000000000000000000000000000000000000000000
 000000003333353300eeee0000e44e0000eee0000eee4e0000eee0000eeeee0000eeee0000e44e00000000000000000000000000000000000000000000000000
 000000003333353300e44e000000ee0000eeee000ee44ee000eeee000ee44ee000e44e000000ee00000000000000000000000000000000000000000000000000
