@@ -10,6 +10,7 @@ boulder_break_state = 10
 max_boulders = 6
 max_monsters = 6
 monster_spawn_freq = 60
+bat_speed = 4
 
 -- max time between coins in a row
 coin_countdown_max = 20
@@ -278,7 +279,6 @@ hero = {
 			crack.state = 2
 			
 			swap_monsters_and_boulders()
-			-- TODO: letter man appears!
 		end		
 	end,
 	
@@ -621,10 +621,18 @@ bomb = {
 			end
 		end
 		
+		-- if explosion hits the crack, open the crack
+		if(crack.state == 0) then
+			if(abs(self.x - crack.x) <= 1 and abs(self.y - crack.y) <= 1) then
+				crack.state = 1
+			end
+		end
+		
 		-- if explosion hits a boulder, break the boulder
 		for b in all(boulder) do
 			if(abs(self.x * 8 - b.x) <= 8 and abs(self.y * 8 - b.y) <= 8) then
 				b.state = boulder_break_state
+				bat:start(b.x,b.y)
 			end
 		end
 		
@@ -645,13 +653,6 @@ bomb = {
 			hero:die()
 		end
 
-		-- if explosion hits the crack, open the crack
-		if(crack.state == 0) then
-			if(abs(self.x - crack.x) <= 1 and abs(self.y - crack.y) <= 1) then
-				crack.state = 1
-			end
-		end
-		
 		self.state = 2
 	end,
 	
@@ -708,6 +709,55 @@ crack = {
 		end
 		
 		pal()
+	end
+}
+
+-- behavior for bat
+bat = {
+	done = true,
+
+	-- set bat starting position and speed
+	start = function(self, xpos, ypos)
+		-- if crack is already exposed, skip bat
+		if(crack.state > 0) then
+			return
+		end
+	
+		self.x = xpos
+		self.y = ypos
+		
+		self.xspeed = (crack.x * 8) - xpos
+		self.yspeed = (crack.y * 8) - ypos
+		
+		local total_speed = abs(self.xspeed) + abs(self.yspeed)
+		self.xspeed *= (bat_speed / total_speed)
+		self.yspeed *= (bat_speed / total_speed)
+		
+		self.done = false
+	end,
+
+	update = function(self)
+		if(self.done) then
+			return 
+		end
+		
+		self.x += self.xspeed
+		self.y += self.yspeed
+		
+		if(self.x < -8 or self.y < -8) then
+			self.done = true
+		elseif(self.x > max_spr_x or self.y > max_spr_y) then
+			self.done = true
+		end
+	end,
+	
+	draw = function(self)
+		if(self.done) then
+			return 
+		end	
+
+		local frame = flr((time() %1) * 2)
+		spr(43+frame, self.x, self.y)
 	end
 }
 
@@ -769,6 +819,7 @@ boulder_proto = {
 					score += self.point_value
 					
 					self.state = boulder_break_state
+					bat:start(self.x,self.y)
 				else
 					self.state = 0
 				end
@@ -776,8 +827,12 @@ boulder_proto = {
 				local b = self:blocked(2)
 				if(b != 0) then
 					-- break boulder if it falls on another boulder or bottom of screen
-					self.state = boulder_break_state
 					self.y -= (self.y % 8)
+					
+					self.state = boulder_break_state
+					bat:start(self.x,self.y)
+					
+					-- if it fell on another boulder, break that one too, but don't spawn bat
 					if(b != 1) then
 						b.state = boulder_break_state					
 					end
@@ -888,6 +943,7 @@ place_boulders = function()
 	local pos = to_xy(t)
 	crack.x = pos.x
 	crack.y = pos.y
+	crack.state = 0
 	
 --	debug_text = "crack tile at "..crack.x..","..crack.y
 
@@ -955,6 +1011,8 @@ function swap_monsters_and_boulders()
 	for p in all(pos) do
 		add(boulder, boulder_proto:instantiate(p.x,p.y))
 	end
+	
+	-- TODO: letter man appears!
 end
 
 -- reset the level. Called after hero dies
@@ -1015,6 +1073,7 @@ function _update()
 	crack:update()
 	bomb:update()
 	hero:update()
+	bat:update()
 	
 	-- clear the block under the hero
 	local herox = roundtonearest(hero.x,8)/8
@@ -1093,6 +1152,8 @@ function _draw()
 		n:draw()
 	end
 
+	bat:draw()
+
 	hero:draw()
 	
 	print("score:\n"..score,(map_w*8)+3,3)
@@ -1117,14 +1178,14 @@ __gfx__
 0000000011115555499999940499aaa900049994049a944049a9a9a9055555500999a990009aa900000100005111111500099000000000000000000000000000
 00000000111111119aaaaaa909aa99940009aaa404a9a9400449a9a4005555000099990000099000000010005111111500999900000000000000000000000000
 0000000011111111049999400049aa4000004994000a440000049490000000000000000000000000000000000555555000000000000000000000000000000000
-00555500005555000088880000888800008888000088880000888800008888000088880000888800000000000000000000000000000000000000000000000000
-05111150052222500888888008888880088888800888888008888880088888800888888008888880000000000000000000000000000000000000000000000000
-0511115005b22b5008888880088888800888b8800888b8800888b8800888b88008b88b8008b88b80000000000000000000000000000000000000000000000000
-05111150052222500888888008888880088888800888888008888880088888800888888008888880000000000000000000000000000000000000000000000000
-0051150000522500006dd600006dd60000d66d0000d66d0000d66d0000d66d00006dd600006dd600000000000000000000000000000000000000000000000000
-0051150000522500086dd680086dd68000dd668000dd668000dd668000dd6680088dd880088dd880000000000000000000000000000000000000000000000000
-005115000052250000dddd000022dd00000dd0000255dd00000dd00008dd550000dddd000022dd00000000000000000000000000000000000000000000000000
-05555550055555500082280000008800000888000220888000088800088022200082280000008800000000000000000000000000000000000000000000000000
+005555000055550000888800008888000088880000888800008888000088880000888800008888000000000000000000c000000c000000000000000000000000
+051111500522225008888880088888800888888008888880088888800888888008888880088888800000000000000000dc0000cd000000000000000000000000
+0511115005b22b5008888880088888800888b8800888b8800888b8800888b88008b88b8008b88b80000000000cc00cc0ddc00cdd000000000000000000000000
+0511115005222250088888800888888008888880088888800888888008888880088888800888888000000000cdaccadc0daccad0000000000000000000000000
+0051150000522500006dd600006dd60000d66d0000d66d0000d66d0000d66d00006dd600006dd60000000000cdccccdc00cccc00000000000000000000000000
+0051150000522500086dd680086dd68000dd668000dd668000dd668000dd6680088dd880088dd88000888800c00cc00c000cc000000000000000000000000000
+005115000052250000dddd000022dd00000dd0000255dd00000dd00008dd550000dddd000022dd0008b88b800c0000c000000000000000000000000000000000
+05555550055555500082280000008800000888000220888000088800088022200082280000008800222dd2220000000000000000000000000000000000000000
 __map__
 1111111111111111111111111111111111111111111111110101010000000000010101010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 1111111111111111111111111111111111111111111111111801010101000101010101010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
