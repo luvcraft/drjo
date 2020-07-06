@@ -274,9 +274,11 @@ hero = {
 		end
 				
 		if(crack.state == 1 and tile_x == crack.x and tile_y == crack.y) then
-			-- TODO: collect treasure, swap boulders and monsters
 			score += 100
 			crack.state = 2
+			
+			swap_monsters_and_boulders()
+			-- TODO: letter man appears!
 		end		
 	end,
 	
@@ -494,6 +496,7 @@ monster_proto = {
 		spr(sprite,self.x,self.y,1,1,flip)
 	end,
 	
+	-- instantiate a monster from this prototype
 	instantiate = function(self,xpos,ypos,movestyle)
 		t = {}
 		for key, value in pairs(self) do
@@ -852,6 +855,7 @@ boulder_proto = {
 		return 0
 	end,
 	
+	-- instantiate a boulder from this prototype
 	instantiate = function(self,xpos,ypos)
 		t = {}
 		for key, value in pairs(self) do
@@ -924,6 +928,32 @@ function draw_monster_spawner()
 		else
 			spr(33,pos.x*8,pos.y*8)
 		end
+	end
+end
+
+-- swap monsters and boulders. Happens when hero collects treasure
+function swap_monsters_and_boulders()
+	local pos = {}
+	
+	for m in all(monster) do
+		local p = {}
+		p.x = roundtonearest(m.x,8)/8
+		p.y = roundtonearest(m.y,8)/8
+		add(pos,p)
+	end
+	
+	monster = {}
+	
+	for b in all(boulder) do
+		add(monster, monster_proto:instantiate(b.x/8,b.y/8,0))
+	end
+
+	dead_monsters = max_monsters - #monster
+	
+	boulder = {}
+	
+	for p in all(pos) do
+		add(boulder, boulder_proto:instantiate(p.x,p.y))
 	end
 end
 
