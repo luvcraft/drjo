@@ -10,6 +10,7 @@ boulder_break_state = 10
 max_boulders = 6
 max_monsters = 6
 monster_spawn_freq = 60
+monster_default_movestyle = 1
 bat_speed = 4
 
 -- max time between coins in a row
@@ -730,10 +731,16 @@ bat = {
 		self.yspeed = (crack.y * 8) - ypos
 		
 		local total_speed = abs(self.xspeed) + abs(self.yspeed)
-		self.xspeed *= (bat_speed / total_speed)
-		self.yspeed *= (bat_speed / total_speed)
 		
-		self.done = false
+		-- make sure total speed is not 0, because bat could spawn right on top of crack
+		if(total_speed > 0) then
+			self.xspeed *= (bat_speed / total_speed)
+			self.yspeed *= (bat_speed / total_speed)
+			
+			self.done = false
+		else
+			self.done = true
+		end
 	end,
 
 	update = function(self)
@@ -971,7 +978,7 @@ end
 -- spawn a monster from the monster spawner
 function spawn_monster()
 	local pos = to_xy(monster_spawner_pos)
-	add(monster, monster_proto:instantiate(pos.x,pos.y,0))
+	add(monster, monster_proto:instantiate(pos.x,pos.y,monster_default_movestyle))
 end
 
 -- draw the monster spawner
@@ -1001,7 +1008,7 @@ function swap_monsters_and_boulders()
 	monster = {}
 	
 	for b in all(boulder) do
-		add(monster, monster_proto:instantiate(b.x/8,b.y/8,0))
+		add(monster, monster_proto:instantiate(b.x/8,b.y/8,monster_default_movestyle))
 	end
 
 	dead_monsters = max_monsters - #monster
