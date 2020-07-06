@@ -144,6 +144,8 @@ function boulder_check(character, dir)
 end
 
 -- global vars
+current_level = 0
+
 current_map_x = 12 + 12
 current_map_y = 0
 
@@ -577,6 +579,12 @@ bomb = {
 	cooldown = 0,
 	next_cooldown = 30,
 	
+	reset = function(self)
+		self.state = 0
+		self.cooldown = 0
+		self.next_cooldown = 30
+	end,
+	
 	update = function(self)
 		if(self.state == 0) then
 			-- if no bomb is set, decrease cooldown timer
@@ -862,10 +870,13 @@ place_boulders = function()
 	
 --	debug_text = "crack tile at "..crack.x..","..crack.y
 
+	-- delete tiles with coins on them from possible boulder placements
 	for c in all(coin) do
 		del(tiles,c)
 	end
 			
+	boulder = {}
+
 	for i = 1,max_boulders do
 		t = rnd(tiles)
 		pos = to_xy(t)
@@ -905,21 +916,15 @@ function reset_level()
 	hero.x=5 * 8
 	hero.y=max_spr_y
 	
+	bomb:reset()
+	
 	monster = {}
 	floaty_numbers = {}
 end
 
--->8
--- main functions
+function next_level()
+	current_level += 1
 
-function _init()
-	coin = {}
-	boulder = {}
-	monster = {}
-	floaty_numbers = {}
-
-	camera(0,-8)
-	
 	for x=0,map_w-1 do
 		for y=0,map_h-1 do
 			local n = mget(x+current_map_x,y+current_map_y)
@@ -940,8 +945,23 @@ function _init()
 		
 	coin_countdown = 0
 	coins_in_a_row = 0
+	dead_monsters = 0
 	
 	reset_level()
+end
+
+-->8
+-- main functions
+
+function _init()
+	coin = {}
+	boulder = {}
+	monster = {}
+	floaty_numbers = {}
+
+	camera(0,-8)
+	
+	next_level()
 end
 
 function _update()
@@ -966,6 +986,12 @@ function _update()
 				spawn_monster()
 			end
 		end
+		
+		if(#coin == 0 or dead_monsters == max_monsters) then
+			-- if hero collected all coins or killed all monsters, go to the next level
+			next_level()
+		end
+		
 	elseif(hero.dying >= done_dying) then
 		reset_level()
 	end
@@ -977,7 +1003,6 @@ function _update()
 	for n in all(floaty_numbers) do
 		n:update()
 	end
-
 	
 	-- update "coins in a row"
 	if(coins_in_a_row > 0) then
