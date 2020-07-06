@@ -86,19 +86,16 @@ function not_contains(array, value)
 end
 
 -- check to see if there's a boulder or wall immediately in the specified direction from the character
--- returns 0 for no boulder, 1 for blocked, and the boulder if it's pushable
+-- returns 0 for no boulder, 1 for blocked or vertical boulder, and the boulder if it's pushable
 function boulder_check(character, dir)
 	if(dir==0) then
 		if(character.y<=0) then
 			return 1
 		else
 			for b in all(boulder) do
-				if(character.x==b.x and inrange( character.y - b.y,8)) then
-					if(b:blocked(dir) !=0 or b.state > 0) then
-						return 1
-					else
-						return b
-					end
+				if(character.x==b.x and inrange(character.y - b.y,8)) then
+					-- boulder in the way vertically. return blocked!
+					return 1
 				end
 			end
 		end
@@ -107,7 +104,7 @@ function boulder_check(character, dir)
 			return 1
 		else
 			for b in all(boulder) do
-				if(character.y==b.y and inrange( b.x - character.x,8)) then
+				if(character.y==b.y and inrange(b.x - character.x,8)) then
 					if(b:blocked(dir) !=0 or b.state > 0) then
 						return 1
 					else
@@ -122,11 +119,8 @@ function boulder_check(character, dir)
 		else
 			for b in all(boulder) do
 				if(character.x==b.x and inrange(b.y - character.y,8)) then
-					if(b:blocked(dir) !=0 or b.state > 0) then
-						return 1
-					else
-						return b
-					end
+					-- boulder in the way vertically. return blocked!
+					return 1
 				end
 			end
 		end
@@ -135,7 +129,7 @@ function boulder_check(character, dir)
 			return 1
 		else
 			for b in all(boulder) do
-				if(character.y==b.y and inrange( character.x - b.x,8)) then
+				if(character.y==b.y and inrange(character.x - b.x,8)) then
 					if(b:blocked(dir) !=0 or b.state > 0) then
 						return 1
 					else
@@ -159,6 +153,8 @@ coins_in_a_row = 0
 
 monster_spawn_countup = 0
 monster_spawner_pos = 0
+
+dead_monsters = 0
 
 debug_text = ""
 
@@ -342,27 +338,20 @@ hero = {
 monster_proto = {
 	facing = 0,
 	speed = 1,
-	state = 0,
-	-- state
-	--- 0 = normal
-	--- 1 = blown up
-	--- 2 = squished
 	movestyle = 0,
 	-- movestyle
 	--- 0 = erratic
 	--- 1 = can only reverse if hit a wall
 	--- 2 = can only reverse if hit a dead end
 
-	update = function(self)
-		if(self.state == 0) then
-			self:move()
-			
-			-- if this monster has caught the hero, hero dies
-			if(self.x == hero.x and inrange(self.y-hero.y,-4,4)) then
-				hero:die()
-			elseif(self.y == hero.y and inrange(self.x-hero.x,-4,4)) then
-				hero:die()
-			end
+	update = function(self)	
+		self:move()
+		
+		-- if this monster has caught the hero, hero dies
+		if(self.x == hero.x and inrange(self.y-hero.y,-4,4)) then
+			hero:die()
+		elseif(self.y == hero.y and inrange(self.x-hero.x,-4,4)) then
+			hero:die()
 		end
 	end,
 	
@@ -482,7 +471,14 @@ monster_proto = {
 		end
 	end,
 	
+	die = function(self, point_value)
+		add(floaty_numbers, floaty_number_proto:instantiate(self.x, self.y, point_value))				
+		dead_monsters += 1
+		del(monster, self)
+	end,
+	
 	draw = function(self)
+		-- normal
 		spr(36,self.x,self.y)
 	end,
 	
@@ -541,9 +537,43 @@ end
 -->8
 -- other objects
 
+-- prototype behavior for floaty numbers
+floaty_number_proto = {
+	progress = 0,
+	
+	update = function(self)
+		self.progress += 1
+		if(self.progress > 30) then
+			del(floaty_numbers,self)
+		end
+	end,
+	
+	draw = function(self)
+		print(self.value,self.x,self.y-(self.progress/2))
+	end,
+
+	instantiate = function(self,xpos,ypos,value)
+		t = {}
+		for key, value in pairs(self) do
+			t[key] = value
+		end
+		t.x = xpos
+		t.y = ypos
+		t.value = value
+		
+		return t
+	end
+}
+
 -- behavior for the bomb
 bomb = {
 	state = 0,
+	-- state
+	--- 0 = not placed
+	--- 1 = placed
+	--- 2 = exploding
+	--- 3 = done exploding
+	
 	cooldown = 0,
 	next_cooldown = 30,
 	
@@ -570,12 +600,31 @@ bomb = {
 			end
 		end
 		
+		-- if explosion hits a boulder, break the boulder
 		for b in all(boulder) do
 			if(abs(self.x * 8 - b.x) <= 8 and abs(self.y * 8 - b.y) <= 8) then
 				b.state = boulder_break_state
 			end
 		end
 		
+		local point_value = 0
+		
+		-- if explosion hits a monster, kill the monster
+		for m in all(monster) do
+			if(abs(self.x * 8 - m.x) <= 8 and abs(self.y * 8 - m.y) <= 8) then
+				point_value += 10
+				score += point_value
+				
+				m:die(point_value)
+			end
+		end
+		
+		-- if explosion hits the hero, kill the hero
+		if(abs(self.x * 8 - hero.x) <= 8 and abs(self.y * 8 - hero.y) <= 8) then
+			hero:die()
+		end
+
+		-- if explosion hits the crack, open the crack
 		if(crack.state == 0) then
 			if(abs(self.x - crack.x) <= 1 and abs(self.y - crack.y) <= 1) then
 				crack.state = 1
@@ -611,6 +660,10 @@ crack = {
 	x = 4,
 	y = 4,
 	state = 0,
+	-- state
+	--- 0 = closed
+	--- 1 = open and not collected
+	--- 2 = open and empty
 	
 	update = function(self)
 	end,
@@ -640,6 +693,7 @@ crack = {
 -- prototype behavior for boulders
 boulder_proto = {
 	state = 0,
+	point_value = 0,
 	
 	update = function(self)
 		if(self.state == 0) then
@@ -663,12 +717,29 @@ boulder_proto = {
 			-- boulder is falling
 			self.y+=1.5
 			
+			-- if boulder hits a monster, kill the monster
+			for m in all(monster) do
+				if(inrange(self.x - m.x,-6,6) and inrange(self.y - m.y,-6,6)) then
+					self.point_value += 10
+					score += self.point_value
+					
+					m:die(self.point_value)
+				end
+			end
+
+			-- if boulder hits the hero, kill the hero
+			if(inrange(self.x - hero.x,-6,6) and inrange(self.y - hero.y,-6,6)) then
+				hero:die()
+			end
+			
 			if(mget(self.x/8,self.y/8 + 1) != 0) then
 				-- falling boulder hit ground
 				self.y -= (self.y % 8)
 				if(self.y - self.starting_y > 8) then
 					-- boulder fell far enough to break
-					score += 10
+					self.point_value += 10
+					score += self.point_value
+					
 					self.state = boulder_break_state
 				else
 					self.state = 0
@@ -819,14 +890,12 @@ end
 function draw_monster_spawner()
 	local pos = to_xy(monster_spawner_pos)
 	
-	if(#monster < max_monsters) then
+	if(#monster + dead_monsters < max_monsters) then
 		if(monster_spawn_countup < (monster_spawn_freq/2)) then
-			mset(pos.x,pos.y,32)
+			spr(32,pos.x*8,pos.y*8)
 		else
-			mset(pos.x,pos.y,33)
+			spr(33,pos.x*8,pos.y*8)
 		end
-	else
-		mset(pos.x, pos.y, 0)
 	end
 end
 
@@ -837,6 +906,7 @@ function reset_level()
 	hero.y=max_spr_y
 	
 	monster = {}
+	floaty_numbers = {}
 end
 
 -->8
@@ -846,6 +916,7 @@ function _init()
 	coin = {}
 	boulder = {}
 	monster = {}
+	floaty_numbers = {}
 
 	camera(0,-8)
 	
@@ -887,12 +958,8 @@ function _update()
 		for m in all(monster) do
 			m:update()
 		end
-
-		for b in all(boulder) do
-			b:update()
-		end
 		
-		if(#monster < max_monsters) then
+		if(#monster + dead_monsters < max_monsters) then
 			monster_spawn_countup += 1
 			if(monster_spawn_countup >= monster_spawn_freq) then
 				monster_spawn_countup = 0
@@ -902,6 +969,15 @@ function _update()
 	elseif(hero.dying >= done_dying) then
 		reset_level()
 	end
+	
+	for b in all(boulder) do
+		b:update()
+	end
+
+	for n in all(floaty_numbers) do
+		n:update()
+	end
+
 	
 	-- update "coins in a row"
 	if(coins_in_a_row > 0) then
@@ -934,6 +1010,10 @@ function _draw()
 	
 	for b in all(boulder) do
 		b:draw()
+	end
+
+	for n in all(floaty_numbers) do
+		n:draw()
 	end
 
 	hero:draw()
