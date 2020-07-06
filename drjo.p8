@@ -10,7 +10,7 @@ boulder_break_state = 10
 max_boulders = 6
 max_monsters = 6
 monster_spawn_freq = 60
-monster_default_movestyle = 1
+monster_default_movestyle = 2
 bat_speed = 4
 
 -- max time between coins in a row
@@ -706,6 +706,8 @@ crack = {
 			spr(28,x,y)
 		elseif(self.state == 2) then
 			-- open and empty
+			pal()
+			pal(5,0)
 			spr(27,x,y)
 		end
 		
@@ -945,6 +947,12 @@ place_boulders = function()
 		end
 	end
 
+	-- delete tiles with coins on them from possible boulder or crack placements
+	for c in all(coin) do
+		del(tiles,c)
+		del(crack_tiles,c)
+	end
+
 	-- place crack in a random position
 	local t = rnd(crack_tiles)
 	local pos = to_xy(t)
@@ -953,11 +961,6 @@ place_boulders = function()
 	crack.state = 0
 	
 --	debug_text = "crack tile at "..crack.x..","..crack.y
-
-	-- delete tiles with coins on them from possible boulder placements
-	for c in all(coin) do
-		del(tiles,c)
-	end
 			
 	boulder = {}
 
