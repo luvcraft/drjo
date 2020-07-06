@@ -10,7 +10,7 @@ boulder_break_state = 10
 max_boulders = 6
 max_monsters = 6
 monster_spawn_freq = 60
-monster_default_movestyle = 2
+monster_default_movestyle = 1
 bat_speed = 4
 
 -- max time between coins in a row
@@ -395,7 +395,7 @@ monster_proto = {
 			elseif (self.movestyle == 1) then
 				-- movestyle 1 = can only reverse if hit a wall, but can turn
 
-				if(contains(available_direction,self.facing)) then
+				if(contains(available_directions,self.facing)) then
 					del(available_directions,reverse_facing)
 				end
 				potential_directions = available_directions				
