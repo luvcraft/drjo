@@ -57,6 +57,12 @@ function inrange(num, min, max)
 	end
 end
 
+-- lerp between a and b
+function lerp(a, b, t)
+	local c = b - a
+	return a + (c * t)
+end
+
 -- converts an int to a vector2
 function to_xy(number) 
 	local t = {}
@@ -163,6 +169,7 @@ monster_spawn_countup = 0
 monster_spawner_pos = 0
 
 dead_monsters = 0
+level_won = false
 
 debug_text = ""
 
@@ -300,6 +307,10 @@ hero = {
 	
 	-- start dying
 	die = function(self)
+		if(level_won) then
+			return
+		end
+		
 		if(self.dying < 1) then
 			self.dying = 1
 		end
@@ -939,6 +950,67 @@ boulder_proto = {
 	end
 }
 
+-- behavior for the hero in a victory animation
+victory_hero = {
+	state = 0,
+	-- state
+	--- 0 = victory pose delay
+	--- 1 = fire grappling hook
+	--- 2 = rappel up off screen
+	--- 3 = wait delay
+	--- 4 = next level
+	
+	delay = 0,
+
+	start = function(self)
+		self.state = 0
+		self.delay = 0
+		
+		self.x = hero.x
+		self.y = hero.y
+		
+		self.hookx = self.x + 3
+		self.hooky = self.y - 8		
+	end,
+
+	update = function(self)
+		if(self.state == 0 or self.state == 3) then
+			-- wait
+			self.delay+=1
+			if(self.delay >= 30) then
+				self.delay = 0
+				self.state += 1
+			end
+		elseif(self.state == 1) then
+			-- fire hook
+			self.hooky -= 4
+			if(self.hooky < -24) then
+				self.state += 1
+			end
+		elseif(self.state == 2) then
+			-- rappel up off screen
+			self.y -= 2
+			if(self.y < -24) then
+				self.state += 1
+			end
+		else
+			next_level()
+		end		
+	end,
+	
+	draw = function(self)
+		-- draw hat
+		spr(14, self.x, self.y-3)
+		
+		spr(12, self.x, self.y)
+		
+		if(self.state > 0) then
+			spr(13, self.hookx, self.hooky)
+			line(self.x + 6, self.hooky + 8, self.x + 6, self.y, 7)
+		end
+	end
+}
+
 -- place the boulders and the crack
 place_boulders = function()
 	local tiles = {}
@@ -1069,6 +1141,7 @@ function next_level()
 	coin_countdown = 0
 	coins_in_a_row = 0
 	dead_monsters = 0
+	level_won = false
 	
 	reset_level()
 end
@@ -1090,8 +1163,13 @@ end
 function _update()
 	crack:update()
 	bomb:update()
-	hero:update()
 	bat:update()
+
+	if(level_won) then
+		victory_hero:update()
+	else 
+		hero:update()
+	end
 	
 	-- clear the block under the hero
 	local herox = roundtonearest(hero.x,8)/8
@@ -1107,7 +1185,7 @@ function _update()
 		end
 	end
 
-	if(hero.dying < 1) then
+	if(hero.dying < 1 and level_won == false) then
 		for m in all(monster) do
 			m:update()
 		end
@@ -1122,7 +1200,8 @@ function _update()
 		
 		if(#coin == 0 or dead_monsters == max_monsters) then
 			-- if hero collected all coins or killed all monsters, go to the next level
-			next_level()
+			level_won = true
+			victory_hero:start()
 		end
 		
 	elseif(hero.dying >= done_dying and boulders_falling == false) then
@@ -1172,7 +1251,11 @@ function _draw()
 
 	bat:draw()
 
-	hero:draw()
+	if(level_won) then
+		victory_hero:draw()
+	else 
+		hero:draw()
+	end
 	
 	print("score:\n"..score,(map_w*8)+3,3)
 	
@@ -1180,14 +1263,14 @@ function _draw()
 end
 
 __gfx__
-0000000055555555009999000099990000999900009999000099990000999900009999000099990000e22e0000e2000000000000000000000000000000000000
-00000000335333330999999009999990009f3f00009f3f00009f3f00009f3f00093ff390093ff39000eeee0000ee2e0000000000000000000000000000000000
-00700700335333330999999009999990009fff00009fff00009fff00009fff0009ffff9009ffff90ee2222eeee22ee0000000000000000000000000000000000
-00077000335333330999999009999990009ee000009ee000009ee000009ee00009eeee9009eeee90eeeeeeee0eee22ee00000000000000000000000000000000
-00077000555555550eeeeee00eeeeee000eeef0000eeef0000efe00000efe0000eeeeee00eeeeee000000000000eeee000000000000000000000000000000000
-00700700333335330feeeef00feeeef000efe00000efe00000eeef0000eeef000feeeef00feeeef0000000000000000000000000000000000000000000000000
-000000003333353300eeee0000e44e0000eee0000eee4e0000eee0000eeeee0000eeee0000e44e00000000000000000000000000000000000000000000000000
-000000003333353300e44e000000ee0000eeee000ee44ee000eeee000ee44ee000e44e000000ee00000000000000000000000000000000000000000000000000
+0000000055555555009999000099990000999900009999000099990000999900009999000099990000e22e0000e20000009999000000000000e22e0000000000
+00000000335333330999999009999990009f3f00009f3f00009f3f00009f3f00093ff390093ff39000eeee0000ee2e00093ff3f00000000000eeee0000000000
+00700700335333330999999009999990009fff00009fff00009fff00009fff0009ffff9009ffff90ee2222eeee22ee0009ffffe0000000002222222200000000
+00077000335333330999999009999990009ee000009ee000009ee000009ee00009eeee9009eeee90eeeeeeee0eee22ee09eeeee0000600002222222200000000
+00077000555555550eeeeee00eeeeee000eeef0000eeef0000efe00000efe0000eeeeee00eeeeee000000000000eeee00eeeee40066666000000000000000000
+00700700333335330feeeef00feeeef000efe00000efe00000eeef0000eeef000feeeef00feeeef000000000000000000feeee00650605600000000000000000
+000000003333353300eeee0000e44e0000eee0000eee4e0000eee0000eeeee0000eeee0000e44e00000000000000000000eeee00000600000000000000000000
+000000003333353300e44e000000ee0000eeee000ee44ee000eeee000ee44ee000e44e000000ee00000000000000000000e44e00006660000000000000000000
 00000000555511110049940000049940000004940000000000000000000000000000000000000000000000000055550000000000000000000000000000000000
 000000001111555504999940004999940000499404400000000000000055550000999900000990000001000005111150009aa900000000000000000000000000
 000000001111111104a99a40004a999400004a94494500000000000005665550099a9990009aa900000010005111111500999900000000000000000000000000
