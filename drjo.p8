@@ -109,6 +109,8 @@ function boulder_check(character, dir)
 				if(character.y==b.y and inrange(b.x - character.x,8)) then
 					if(b:blocked(dir) !=0 or b.state > 0) then
 						return 1
+					elseif(roundtonearest(hero.y,8) == b.y and inrange(hero.x - b.x,8)) then
+						return 1
 					else
 						return b
 					end
@@ -133,6 +135,8 @@ function boulder_check(character, dir)
 			for b in all(boulder) do
 				if(character.y==b.y and inrange(character.x - b.x,8)) then
 					if(b:blocked(dir) !=0 or b.state > 0) then
+						return 1
+					elseif(roundtonearest(hero.y,8) == b.y and inrange(b.x - hero.x,8)) then
 						return 1
 					else
 						return b
@@ -364,13 +368,14 @@ monster_proto = {
 		local speed = self.speed
 		local pushing_speed = self.speed * 0.7
 		local reverse_facing = (self.facing + 2) % 4 -- opposite direction from facing
-		
+		local b = boulder_check(self, self.facing)
+
 		if(flr(self.x%8) == 0 and flr(self.y%8) == 0) then
 			local potential_directions = {}
 			local available_directions = {}
 			for i=0,3 do
-				if(self:wallcheck(i) == 0) then
-					add(available_directions,i)
+				if(self:wallcheck(i) == 0 and b != 1) then
+					add(available_directions, i)
 				end
 			end
 			
@@ -414,9 +419,12 @@ monster_proto = {
 			else
 				self.facing = 4
 			end
+		elseif(b == 1) then
+			self.facing = reverse_facing
 		end
 
-		local b = boulder_check(self, self.facing)
+		-- check for boulder again in case facing has changed
+		b = boulder_check(self, self.facing)
 
 		if(b != 1) then
 			if(self.facing == 0) then 
