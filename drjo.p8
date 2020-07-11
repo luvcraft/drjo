@@ -12,6 +12,7 @@ max_monsters = 6
 monster_spawn_freq = 60
 monster_default_movestyle = 1
 bat_speed = 4
+bonus_letters = {"b","o","n","u","s"}
 
 -- max time between coins in a row
 coin_countdown_max = 20
@@ -169,6 +170,7 @@ monster_spawn_countup = 0
 monster_spawner_pos = 0
 
 dead_monsters = 0
+next_bonus_letter = 1
 level_won = false
 
 debug_text = ""
@@ -460,7 +462,7 @@ monster_proto = {
 		end
 		
 		self.x = minmax(self.x,0,max_spr_x)
-		self.y = minmax(self.y,0,max_spr_y)
+		self.y = minmax(self.y,-8,max_spr_y)
 		
 		local tile_x = roundtonearest(self.x, 8)/8
 		local tile_y = roundtonearest(self.y, 8)/8
@@ -499,6 +501,9 @@ monster_proto = {
 		add(floaty_numbers, floaty_number_proto:instantiate(self.x, self.y, point_value))				
 		dead_monsters += 1
 		del(monster, self)
+		if(self == letter_man) then
+			next_bonus_letter+=1
+		end
 	end,
 	
 	draw = function(self)
@@ -530,6 +535,34 @@ monster_proto = {
 		return t
 	end
 }
+
+-- behavior for letter man, who's a monster with some differences
+letter_man = monster_proto:instantiate(0,0,2)
+
+letter_man.start = function(self)
+	if(contains(monster,self)) then
+		return
+	end
+	
+	self.x = 5*8
+	self.y = -1*8
+	self.facing = 2
+	add(monster,self)
+	dead_monsters -= 1
+end
+
+letter_man.draw = function(self)
+	local frame = flr((self.x + self.y)/2) % 4
+	if(frame == 1) then
+		spr(51,self.x,self.y)
+	elseif(frame == 3) then
+		spr(51,self.x,self.y,1,1,true)
+	else
+		spr(50,self.x,self.y)
+	end
+	
+	print(bonus_letters[next_bonus_letter],self.x+3, self.y+1,10)
+end
 
 -->8
 -- coins
@@ -637,7 +670,11 @@ bomb = {
 	explode = function(self)
 		for x=-1,1 do
 			for y=-1,1 do
-				mset(self.x+x,self.y+y,0)
+				local xx = self.x+x
+				local yy = self.y+y
+				if(xx > -1 and xx < map_w and yy > -1 and yy < map_h) then
+					mset(xx,yy,0)
+				end
 			end
 		end
 		
@@ -994,7 +1031,7 @@ victory_hero = {
 				self.state += 1
 			end
 		else
-			next_level()
+			end_level()
 		end		
 	end,
 	
@@ -1102,7 +1139,7 @@ function swap_monsters_and_boulders()
 		add(boulder, boulder_proto:instantiate(p.x,p.y))
 	end
 	
-	-- TODO: letter man appears!
+	letter_man:start()
 end
 
 -- reset the level. Called after hero dies
@@ -1115,6 +1152,17 @@ function reset_level()
 	
 	monster = {}
 	floaty_numbers = {}
+end
+
+function end_level()
+	-- TODO: play intermission if it's time for one
+	
+	if(next_bonus_letter > #bonus_letters) then
+	-- TODO: play bonus animation if bonus is full
+		next_bonus_letter = 1
+	end
+	
+	next_level()
 end
 
 function next_level()
@@ -1198,9 +1246,19 @@ function _update()
 			end
 		end
 		
-		if(#coin == 0 or dead_monsters == max_monsters) then
-			-- if hero collected all coins or killed all monsters, go to the next level
+		if(#coin == 0) then
+			-- if hero collected all coins, hero won
 			level_won = true
+		elseif(dead_monsters == max_monsters) then
+			-- if hero killed all monsters, hero won
+			level_won = true
+		elseif(next_bonus_letter > #bonus_letters) then
+			-- if hero completed bonus letters, hero won
+			level_won = true
+		end
+		
+		if(level_won) then
+		-- if hero won, go to the next level
 			victory_hero:start()
 		end
 		
@@ -1259,6 +1317,18 @@ function _draw()
 	
 	print("score:\n"..score,(map_w*8)+3,3)
 	
+	local bonus_y = 20
+	rect((map_w*8)+3,bonus_y,125,bonus_y+8,6)
+	
+	for i = 1,#bonus_letters do
+		local x = (map_w*8)+(i*5)
+		if(i<next_bonus_letter) then		
+			print(bonus_letters[i],x,bonus_y + 2,10)
+		else
+			print(bonus_letters[i],x,bonus_y + 2,5)
+		end
+	end
+	
 	print(debug_text,8,-8)
 end
 
@@ -1287,6 +1357,14 @@ __gfx__
 0051150000522500086dd680086dd68000dd668000dd668000dd668000dd6680088dd880088dd88000888800c00cc00c000cc000000000000000000000000000
 005115000052250000dddd000022dd00000dd0000255dd00000dd00008dd550000dddd000022dd0008b88b800c0000c000000000000000000000000000000000
 05555550055555500082280000008800000888000220888000088800088022200082280000008800222dd2220000000000000000000000000000000000000000
+000000000000000000cccc0000cccc00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000cccccc00cccccc0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000cccccc0dcccccc0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0000000000000000dccccccddccccccd000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0000000000000000dccccccd0ccccccd000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000cccccc00cccccc0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+000000000000000000cccc0000cccc00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000dd00dd00000dd00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 __map__
 1111111111111111111111111111111111111111111111110101010000000000010101010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 1111111111111111111111111111111111111111111111111801010101000101010101010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
