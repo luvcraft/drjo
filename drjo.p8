@@ -12,6 +12,7 @@ max_monsters = 6
 monster_spawn_freq = 60
 monster_default_movestyle = 1
 bat_speed = 4
+explosion_particles = 16
 bonus_letters = {"b","o","n","u","s"}
 
 -- max time between coins in a row
@@ -66,6 +67,14 @@ end
 function lerp(a, b, t)
 	local c = b - a
 	return a + (c * t)
+end
+
+-- convert from polar to cartesian coordinates
+function pol2cart(a, r)
+	local t = {}
+	t.x = sin(a) * r
+	t.y = -cos(a) * r
+	return t;
 end
 
 -- converts an int to a vector2
@@ -675,6 +684,9 @@ bomb = {
 			-- if no bomb is set, decrease cooldown timer
 			if(self.cooldown > 0) then
 				self.cooldown -= 1
+				if(self.cooldown == 0) then
+					explosion:start(hero.x+4,hero.y+4,true)
+				end
 			end
 		elseif(self.state >= 2) then
 			self.state += 0.1
@@ -730,6 +742,7 @@ bomb = {
 		end
 
 		self.state = 2
+		explosion:start(self.x*8+4,self.y*8+4,false)
 	end,
 	
 	draw = function(self)
@@ -749,6 +762,62 @@ bomb = {
 			r = (3-self.state) * 12
 			circfill((self.x*8)+4,(self.y*8)+4,r,8)
 			circfill((self.x*8)+4,(self.y*8)+4,r/2,9)
+		end
+	end
+}
+
+-- explosion / implosion behavior
+explosion = {
+	x, y,
+	particle = {},
+	progress = 0,
+	frame = 0,
+	
+	start = function(self,x,y,reverse)
+		self.reverse = reverse
+		self.progress = 0
+		self.x = x
+		self.y = y
+		self.particle = {}		
+		
+		for i=1,explosion_particles do
+			add(self.particle, pol2cart(rnd(100)/100,64))
+		end
+	end,
+	
+	update = function(self)
+		if(self.progress > 1) then
+			return
+		end
+		self.progress += 1/30
+		
+		self.frame += 1
+		self.frame %= 2
+	end,
+	
+	draw = function(self)
+		if(self.progress > 1) then
+			return
+		elseif(level_won and self.reverse) then
+			return
+		end
+	
+		local x,y
+		local progress = self.progress
+		if(self.reverse) then
+			progress = 1-self.progress
+			self.x = hero.x+4
+			self.y = hero.y+4
+		end
+		
+		local n = 0
+		for p in all(self.particle) do
+			n += 1
+			if(n % 2 == self.frame) then
+				x = self.x + (p.x * progress)
+				y = self.y + (p.y * progress)
+				circfill(x,y,1,7)
+			end
 		end
 	end
 }
@@ -1242,6 +1311,7 @@ function _update()
 	crack:update()
 	bomb:update()
 	bat:update()
+	explosion:update()
 
 	if(level_won) then
 		victory_hero:update()
@@ -1345,6 +1415,8 @@ function _draw()
 	else 
 		hero:draw()
 	end
+	
+	explosion:draw()
 	
 	print("score:\n"..score,(map_w*8)+3,3)
 	
