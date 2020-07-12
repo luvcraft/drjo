@@ -179,7 +179,7 @@ level_won = false
 
 debug_text = ""
 
--->8
+
 -- hero
 
 hero = {
@@ -358,13 +358,14 @@ hero = {
 	end
 }
 
--->8
+
 -- monster
 
 -- prototype behavior for monsters
 monster_proto = {
 	facing = 0,
 	speed = 1,
+	digging = false,
 	movestyle = 0,
 	-- movestyle
 	--- 0 = erratic
@@ -397,7 +398,21 @@ monster_proto = {
 				end
 			end
 			
-			if(self.movestyle == 0) then
+			if(self.digging) then
+				if(mget(self.x/8,self.y/8) > 0) then
+					mset(self.x/8,self.y/8,0)
+					if(self.x <= 0 and self.facing == 3) then
+						self.facing = 1
+					elseif(self.x >= map_w*8 and self.facing == 1) then
+						self.facing = 3
+					end
+					
+					add(potential_directions,self.facing)
+					speed = self.speed * 0.7
+				else
+					self.digging = false
+				end
+			elseif(self.movestyle == 0) then
 				-- erratic movestyle. 
 				-- Can reverse at any time, but less likely than other moves					
 				for i in all(available_directions) do
@@ -512,7 +527,6 @@ monster_proto = {
 	end,
 	
 	draw = function(self)
-		-- normal
 		local frame = flr((self.x + self.y)/2) % 4
 		local flip = (self.facing == 3) or (self.facing != 1 and frame == 3)
 		local sprite = 36+frame
@@ -569,7 +583,7 @@ letter_man.draw = function(self)
 	print(bonus_letters[next_bonus_letter],self.x+3, self.y+1,10)
 end
 
--->8
+
 -- coins
 
 -- draw all coins at once
@@ -607,7 +621,7 @@ add_coin_cluster = function(x,y)
 	add(coin,from_xy(x+1,y+1))
 end
 
--->8
+
 -- other objects
 
 -- prototype behavior for floaty numbers
@@ -1133,7 +1147,16 @@ function swap_monsters_and_boulders()
 	monster = {}
 	
 	for b in all(boulder) do
-		add(monster, monster_proto:instantiate(b.x/8,b.y/8,monster_default_movestyle))
+		local m = monster_proto:instantiate(b.x/8,b.y/8,monster_default_movestyle)
+		add(monster, m)
+		if(mget(b.x/8,b.y/8) > 0) then
+			m.digging = true
+			if(b.x/8 > map_w/2) then
+				m.facing = 3
+			else
+				m.facing = 1
+			end
+		end
 	end
 
 	dead_monsters = max_monsters - #monster
@@ -1201,7 +1224,7 @@ function next_level()
 	reset_level()
 end
 
--->8
+
 -- main functions
 
 function _init()
@@ -1402,7 +1425,7 @@ __sfx__
 010600080562500005000050000505605056200000500005000050000500005000050000500005000050000500005000050000500005000050000500005000050000500005000050000500005000050560500005
 011000001155018550000001855016550000001655015550000001555013550000001150011550000000c5000c550000001150011550000000000000000000000000000000000000000000000000000000000000
 010800181155011500115500000011550000001155011550115501155000000000001555000000155500000015550000001555015550155501555000000000001150013500155001d500185001d5000000000000
-011000001155013550155501d55000000185501d55000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+011000001155013550155501d55000000185501d55000000000000515000000021000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 __music__
 00 41044344
 00 41054344
