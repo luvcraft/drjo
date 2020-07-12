@@ -15,6 +15,7 @@ bat_speed = 4
 explosion_particles = 16
 bonus_letters = {"b","o","n","u","s"}
 rainbow_colors = {8,9,10,11,12,13}
+starting_lives = 3
 
 -- max time between coins in a row
 coin_countdown_max = 20
@@ -32,6 +33,7 @@ max_levels = 8
 -- music
 hero_death_music = 16
 victory_music = 17
+gameover_music = 19
 
 -- round num to the nearest multiple of target
 function roundtonearest(num, target)
@@ -110,6 +112,21 @@ function not_contains(array, value)
 	return contains(array,value) == false
 end
 
+-- draws outlined text
+function outlined_text(text,x,y,text_color,outline_color)
+	print(text,x-1,y-1,outline_color)
+	print(text,x+1,y-1,outline_color)
+	print(text,x-1,y+1,outline_color)
+	print(text,x+1,y+1,outline_color)
+
+	print(text,x,y-1,outline_color)
+	print(text,x,y+1,outline_color)
+	print(text,x-1,y,outline_color)
+	print(text,x+1,y,outline_color)
+
+	print(text,x,y,text_color)
+end
+
 -- check to see if there's a boulder or wall immediately in the specified direction from the character
 -- returns 0 for no boulder, 1 for blocked or vertical boulder, and the boulder if it's pushable
 function boulder_check(character, dir)
@@ -173,11 +190,22 @@ function boulder_check(character, dir)
 end
 
 -- global vars
+
+game_mode = 1
+-- game_mode
+--- 0 = title screen
+--- 1 = main game
+--- 2 = game over
+--- 3 = intermission
+--- 4 = extra life animation
+--- 5 = high score entry
+
 current_level = 0
 
 current_map_x = 12 + 12
 current_map_y = 0
 
+lives = 0
 score = 0
 coin_countdown = 0
 coins_in_a_row = 0
@@ -191,7 +219,6 @@ rainbow_color = rainbow_colors[1]
 level_won = false
 
 debug_text = ""
-
 
 -- hero
 
@@ -331,6 +358,7 @@ hero = {
 		end
 		
 		if(self.dying < 1) then
+			lives -= 1
 			self.dying = 1
 			music(hero_death_music)
 		end
@@ -370,7 +398,6 @@ hero = {
 		end
 	end
 }
-
 
 -- monster
 
@@ -596,7 +623,6 @@ letter_man.draw = function(self)
 	print(bonus_letters[next_bonus_letter],self.x+3, self.y+1,10)
 end
 
-
 -- coins
 
 -- draw all coins at once
@@ -633,7 +659,6 @@ add_coin_cluster = function(x,y)
 	add(coin,from_xy(x,y+1))	
 	add(coin,from_xy(x+1,y+1))
 end
-
 
 -- other objects
 
@@ -1304,148 +1329,211 @@ function next_level()
 	reset_level()
 end
 
+-- maingame mode
+maingame = {
+	start = function()
+		game_mode = 1
+
+		coin = {}
+		boulder = {}
+		monster = {}
+		floaty_numbers = {}
+
+		camera(0,-8)
+		
+		lives = starting_lives
+		score = 0
+		current_level = 0
+		
+		next_level()
+	end,
+
+	update = function()
+		rainbow_color = rainbow_colors[(flr(((time() * 2) %1) * #rainbow_colors))+1]
+
+		crack:update()
+		bomb:update()
+		bat:update()
+		explosion:update()
+
+		if(level_won) then
+			victory_hero:update()
+		else 
+			hero:update()
+		end
+		
+		-- clear the block under the hero
+		local herox = roundtonearest(hero.x,8)/8
+		local heroy = roundtonearest(hero.y,8)/8
+		mset(herox,heroy,0)
+
+		local boulders_falling = false
+		
+		for b in all(boulder) do
+			b:update()
+			if(b.state > 0) then
+				boulders_falling = true
+			end
+		end
+
+		if(hero.dying < 1 and level_won == false) then
+			for m in all(monster) do
+				m:update()
+			end
+			
+			if(#monster + dead_monsters < max_monsters) then
+				monster_spawn_countup += 1
+				if(monster_spawn_countup >= monster_spawn_freq) then
+					monster_spawn_countup = 0
+					spawn_monster()
+				end
+			end
+			
+			if(#coin == 0) then
+				-- if hero collected all coins, hero won
+				level_won = true
+			elseif(dead_monsters == max_monsters) then
+				-- if hero killed all monsters, hero won
+				level_won = true
+			elseif(next_bonus_letter > #bonus_letters) then
+				-- if hero completed bonus letters, hero won
+				level_won = true
+			end
+			
+			if(level_won) then
+			-- if hero won, go to the next level
+				victory_hero:start()
+				music(victory_music)
+			end
+			
+		elseif(hero.dying >= done_dying and boulders_falling == false) then
+			if(lives > 0) then
+				reset_level()
+			else
+				gameover.start()
+			end
+		end
+		
+		for n in all(floaty_numbers) do
+			n:update()
+		end
+		
+		-- update "coins in a row"
+		if(coins_in_a_row > 0) then
+			coin_countdown -= 1
+			if(coin_countdown < 0) then
+				coins_in_a_row = 0
+			end
+		end	
+	end,
+	
+	draw = function()
+		cls()
+		rect((map_w *8)+1,0,127,127-8,6)
+		pal(5,0)
+		map(12,0,0,0,map_w,map_h)
+		pal()
+		crack:draw()
+		map(0,0,0,0,map_w,map_h)
+		
+		draw_monster_spawner()
+		
+		draw_coins()
+			
+		bomb:draw()
+		
+		for m in all(monster) do
+			m:draw()
+		end
+		
+		for b in all(boulder) do
+			b:draw()
+		end
+
+		for n in all(floaty_numbers) do
+			n:draw()
+		end
+
+		bat:draw()
+
+		if(level_won) then
+			victory_hero:draw()
+		else 
+			hero:draw()
+		end
+		
+		explosion:draw()
+		
+		print("score:\n"..score,(map_w*8)+3,3,7)
+		
+		local bonus_y = 20
+		rect((map_w*8)+3,bonus_y,125,bonus_y+8,6)
+		
+		for i = 1,#bonus_letters do
+			local x = (map_w*8)+(i*5)
+			if(i<next_bonus_letter) then		
+				print(bonus_letters[i],x,bonus_y + 2,rainbow_color)
+			else
+				print(bonus_letters[i],x,bonus_y + 2,5)
+			end
+		end
+		
+		spr(10,(map_w*8)+7,33)
+		print("X"..lives,(map_w*8)+7+9,32,7)
+		
+		print("level:\n"..current_level,(map_w*8)+3,44,7)
+		
+		print(debug_text,8,-8)	
+	end
+}
+
+-- gameover mode
+gameover = {
+	progress = 0,
+
+	start = function()
+		game_mode = 2
+		
+		music(gameover_music)		
+		progress = 0
+	end,
+	
+	update = function()
+		progress += 1
+		if(progress > 30 * 4) then
+			-- TODO: go to score entry if high score
+			maingame.start()
+		end
+	end,
+	
+	draw = function()
+		maingame.draw()
+		outlined_text("game over",map_w*4 - 20,map_h*4,8,10)
+	end
+}
 
 -- main functions
 
 function _init()
-	coin = {}
-	boulder = {}
-	monster = {}
-	floaty_numbers = {}
-
-	camera(0,-8)
-	
-	next_level()
+	maingame.start()
 end
 
 function _update()
-	rainbow_color = rainbow_colors[(flr(((time() * 2) %1) * #rainbow_colors))+1]
-
-	crack:update()
-	bomb:update()
-	bat:update()
-	explosion:update()
-
-	if(level_won) then
-		victory_hero:update()
-	else 
-		hero:update()
-	end
-	
-	-- clear the block under the hero
-	local herox = roundtonearest(hero.x,8)/8
-	local heroy = roundtonearest(hero.y,8)/8
-	mset(herox,heroy,0)
-
-	local boulders_falling = false
-	
-	for b in all(boulder) do
-		b:update()
-		if(b.state > 0) then
-			boulders_falling = true
-		end
-	end
-
-	if(hero.dying < 1 and level_won == false) then
-		for m in all(monster) do
-			m:update()
-		end
-		
-		if(#monster + dead_monsters < max_monsters) then
-			monster_spawn_countup += 1
-			if(monster_spawn_countup >= monster_spawn_freq) then
-				monster_spawn_countup = 0
-				spawn_monster()
-			end
-		end
-		
-		if(#coin == 0) then
-			-- if hero collected all coins, hero won
-			level_won = true
-		elseif(dead_monsters == max_monsters) then
-			-- if hero killed all monsters, hero won
-			level_won = true
-		elseif(next_bonus_letter > #bonus_letters) then
-			-- if hero completed bonus letters, hero won
-			level_won = true
-		end
-		
-		if(level_won) then
-		-- if hero won, go to the next level
-			victory_hero:start()
-			music(victory_music)
-		end
-		
-	elseif(hero.dying >= done_dying and boulders_falling == false) then
-		reset_level()
-	end
-	
-	for n in all(floaty_numbers) do
-		n:update()
-	end
-	
-	-- update "coins in a row"
-	if(coins_in_a_row > 0) then
-		coin_countdown -= 1
-		if(coin_countdown < 0) then
-			coins_in_a_row = 0
-		end
+	if(game_mode == 1) then
+		maingame.update()
+	elseif(game_mode == 2) then
+		gameover.update()
 	end
 	
 end
 
 function _draw()
-	cls()
-	rect((map_w *8)+1,0,127,127-8,6)
-	pal(5,0)
-	map(12,0,0,0,map_w,map_h)
-	pal()
-	crack:draw()
-	map(0,0,0,0,map_w,map_h)
-	
-	draw_monster_spawner()
-	
-	draw_coins()
-		
-	bomb:draw()
-	
-	for m in all(monster) do
-		m:draw()
-	end
-	
-	for b in all(boulder) do
-		b:draw()
+	if(game_mode == 1) then
+		maingame.draw()
+	elseif(game_mode == 2) then
+		gameover.draw()
 	end
 
-	for n in all(floaty_numbers) do
-		n:draw()
-	end
-
-	bat:draw()
-
-	if(level_won) then
-		victory_hero:draw()
-	else 
-		hero:draw()
-	end
-	
-	explosion:draw()
-	
-	print("score:\n"..score,(map_w*8)+3,3,7)
-	
-	local bonus_y = 20
-	rect((map_w*8)+3,bonus_y,125,bonus_y+8,6)
-	
-	for i = 1,#bonus_letters do
-		local x = (map_w*8)+(i*5)
-		if(i<next_bonus_letter) then		
-			print(bonus_letters[i],x,bonus_y + 2,rainbow_color)
-		else
-			print(bonus_letters[i],x,bonus_y + 2,5)
-		end
-	end
-	
-	print(debug_text,8,-8)
 end
 
 __gfx__
@@ -1511,6 +1599,8 @@ __sfx__
 011000001155018550000001855016550000001655015550000001555013550000001150011550000000c5000c550000001150011550000000000000000000000000000000000000000000000000000000000000
 010800181155011500115500000011550000001155011550115501155000000000001555000000155500000015550000001555015550155501555000000000001150013500155001d500185001d5000000000000
 011000001155013550155501d55000000185501d55000000000000515000000021000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+010c000011550000000000011550000001155011550115500000000000105500000000000105500000010550105501055000000000000b5500b550000000f5500f5500b5500b5500000010550000000000000000
+010c00000512005120051200512000000000000000000000000000000004120041200412004120000000000000000000000000000000001200012000120001200310000000000000000004120041200412004120
 __music__
 00 41044344
 00 41054344
@@ -1531,4 +1621,5 @@ __music__
 04 0a404344
 00 0b050944
 04 0c424344
+04 0d0e4944
 
