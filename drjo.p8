@@ -1,8 +1,8 @@
 pico-8 cartridge // http://www.pico-8.com
 version 27
 __lua__
--- dr jo
--- by luvcraft
+-- Dr Jo
+-- by R. Hunter Gough (luvcraft)
 
 -- constants
 boulder_fall_state = 8
