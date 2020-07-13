@@ -1521,7 +1521,15 @@ title_screen = {
 		
 		pal()
 		
-		print("press \142 or \151 to start!",16,96,7)
+		local s = "press \142 or \151 to start!"
+		print(s,64-(#s*2),80,7)
+		
+		s = "by r.hunter gough"
+		print(s,64-(#s*2),128-12,6)
+		
+		s = "studiohunty.com"
+		print(s,64-(#s*2),128-6,6)
+
 	end
 }
 
