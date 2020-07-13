@@ -1495,10 +1495,13 @@ title_screen = {
 	end,
 	
 	update = function()
+		if(btnp(4) or btnp(5)) then 
+			maingame.start()
+		end
 	end,
 	
 	draw = function()
-		local y = 16
+		local y = 24
 		local stripes_x = (-time()*16)%8
 	
 		-- draw stripes
@@ -1515,6 +1518,8 @@ title_screen = {
 		map(120,8,12*8,y,4,4)
 		
 		pal()
+		
+		print("press \151 to start!",24,96,7)
 	end
 }
 
@@ -1533,7 +1538,7 @@ gameover = {
 		progress += 1
 		if(progress > 30 * 4) then
 			-- TODO: go to score entry if high score
-			maingame.start()
+			title_screen.start()
 		end
 	end,
 	
