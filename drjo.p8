@@ -1579,7 +1579,7 @@ title_screen = {
 	draw = function(self)
 		cls()
 	
-		local y = 24
+		local y = 20
 		local stripes_x = (-time()*16)%8
 	
 		-- draw stripes
@@ -1598,13 +1598,28 @@ title_screen = {
 		pal()
 		
 		local s = "press \142 or \151 to start!"
-		print(s,64-(#s*2),80,7)
+		print(s,64-(#s*2),64,7)
 		
-		s = "by r.hunter gough"
-		print(s,64-(#s*2),128-12,6)
+		s = "r.hunter gough presents"
+		print(s,64-(#s*2),0,13)
 		
-		s = "studiohunty.com"
-		print(s,64-(#s*2),128-6,6)
+		rect(2,78,126,127,5)
+		
+		s = "high scores:"
+		print(s,64-(#s*2),80,12)
+		
+		for i=1,#high_scores do
+			s = high_score_characters[high_scores[i].name[1]]
+			s = s..high_score_characters[high_scores[i].name[2]] 
+			s = s..high_score_characters[high_scores[i].name[3]]
+			
+			local color = 7
+			if(i == score_entry.place) then
+				color = 10
+			end	
+			
+			print(i.." "..s.." "..concat_score(high_scores[i].kscore,high_scores[i].score),40,81+(8*i),color)
+		end
 
 	end
 }
@@ -1655,7 +1670,7 @@ score_entry = {
 	selected_letter = 1,
 	name_letter = 1,
 	name = {29,29,29},
-	place = 1,
+	place = 0,
 
 	start = function(self)
 		game_mode = 5		
@@ -1790,7 +1805,7 @@ score_entry = {
 				color = 10
 			end	
 			
-			print(i.." "..s.." "..concat_score(high_scores[i].kscore,high_scores[i].score),40,82+(8*i),color)
+			print(i.." "..s.." "..concat_score(high_scores[i].kscore,high_scores[i].score),40,81+(8*i),color)
 		end
 	end
 }
