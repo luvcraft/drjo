@@ -12,10 +12,11 @@ max_monsters = 6
 monster_spawn_freq = 60
 monster_default_movestyle = 1
 bat_speed = 4
-explosion_particles = 16
+explosion_particles = 20
 bonus_letters = {"b","o","n","u","s"}
 rainbow_colors = {8,10,11,12}
 gameover_letters = {64,65,66,67,0,68,69,67,70}
+high_score_characters = { "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", ".", " " }
 starting_lives = 3
 
 -- max time between coins in a row
@@ -113,6 +114,17 @@ function not_contains(array, value)
 	return contains(array,value) == false
 end
 
+-- returns the index of the first instance of value in the array, 0 if none
+function index_of(array, value)
+	for i=1,#array do
+		if(array[i] == value) then
+			return i
+		end
+	end
+	
+	return 0
+end
+
 -- draws outlined text
 function outlined_text(text,x,y,text_color,outline_color)
 	print(text,x-1,y-1,outline_color)
@@ -126,6 +138,65 @@ function outlined_text(text,x,y,text_color,outline_color)
 	print(text,x+1,y,outline_color)
 
 	print(text,x,y,text_color)
+end
+
+-- load high scores
+function load_high_scores()
+	high_scores = {}
+	for i=0,50,5 do		
+		local t = {}
+		t.score = dget(i)
+		t.kscore = dget(i+1)
+		t.name = {dget(i+2), dget(i+3), dget(i+4)}
+		add(high_scores,t)
+		printh("score="..concat_score(t.kscore, t.score).." name="..t.name[1]..","..t.name[2]..","..t.name[3])
+	end
+	
+	-- if high scores are empty, use default ones
+	if(high_scores[1].score == 0 and high_scores[1].kscore == 0) then
+		high_scores[1].kscore = 10
+		high_scores[1].name = { 18,8,7 }								
+		high_scores[2].kscore = 9
+		high_scores[2].name = high_scores[1].name
+		high_scores[3].kscore = 8
+		high_scores[3].name = high_scores[1].name
+		high_scores[4].kscore = 7
+		high_scores[4].name = high_scores[1].name
+		high_scores[5].kscore = 6
+		high_scores[5].name = high_scores[1].name
+		
+		save_high_scores()
+	end
+end
+
+-- save high scores
+function save_high_scores()
+	for i=1,10 do
+		local n = (i-1)*5
+		dset(n,high_scores[i].score)
+		dset(n+1,high_scores[i].kscore)
+		dset(n+2,high_scores[i].name[1])
+		dset(n+3,high_scores[i].name[2])
+		dset(n+4,high_scores[i].name[3])
+	end
+end
+
+function concat_score(kscore, score)
+	kscore = kscore or 0
+	
+	if(kscore == 0) then
+		return tostring(score)
+	end
+	
+	local s = tostring(kscore)
+	if(score < 100) then
+		s = s.."0"
+	end
+	if(score < 10) then
+		s = s.."0"
+	end
+	
+	return s..score
 end
 
 -- check to see if there's a boulder or wall immediately in the specified direction from the character
@@ -208,6 +279,7 @@ current_map_y = 0
 
 lives = 0
 score = 0
+kscore = 0
 coin_countdown = 0
 coins_in_a_row = 0
 
@@ -218,6 +290,8 @@ dead_monsters = 0
 next_bonus_letter = 1
 rainbow_color = rainbow_colors[1]
 level_won = false
+
+high_scores = {}
 
 debug_text = ""
 
@@ -1465,7 +1539,7 @@ maingame = {
 		
 		explosion:draw()
 		
-		print("score:\n"..score,(map_w*8)+3,3,7)
+		print("score:\n"..concat_score(kscore,score),(map_w*8)+3,3,7)
 		
 		local bonus_y = 20
 		rect((map_w*8)+3,bonus_y,125,bonus_y+8,6)
@@ -1484,6 +1558,8 @@ maingame = {
 		
 		print("level:\n"..current_level,(map_w*8)+3,44,7)
 		
+		print("high:\n"..concat_score(high_scores[1].kscore,high_scores[1].score),(map_w*8)+3,120-13,7)
+		
 		print(debug_text,8,-8)	
 	end
 }
@@ -1492,6 +1568,7 @@ maingame = {
 title_screen = {
 	start = function()
 		game_mode = 0
+		camera(0,0)
 	end,
 	
 	update = function()
@@ -1571,6 +1648,9 @@ gameover = {
 -- main functions
 
 function _init()
+	cartdata("drjo_luvcraft")
+	load_high_scores()
+	
 	cls()
 	title_screen.start()
 end
@@ -1584,6 +1664,11 @@ function _update()
 		gameover.update()
 	end
 	
+	-- move thousands+ digits of score into kscore
+	if(score >= 1000) then
+		kscore += flr(score/1000)
+		score %= 1000
+	end
 end
 
 function _draw()
