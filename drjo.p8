@@ -1735,19 +1735,31 @@ score_entry = {
 			end
 		end
 	end,
+
+	-- draw a letter man at the specified position
+	draw_letter_man = function(self,x,y)
+		local frame = flr(time()*8) % 4
+		if(frame == 1) then
+			spr(51,x-3,y-1)
+		elseif(frame == 3) then
+			spr(51,x-3,y-1,1,1,true)
+		else
+			spr(50,x-3,y-1)
+		end
+	end,
 	
 	draw = function(self)
 		cls()
 	
 		local s = "you got a new high score!"
 		print(s,64-(#s*2),8,10)
-	
+
 		if(self.name_letter < 4) then
 			for i=1,#high_score_characters do
 				local x = (((i-1) % 10) * 8) + 24
 				local y = (flr((i-1)/10) * 12) + 24
 				if(i==self.selected_letter) then
-					spr(50,x-3,y-1)
+					self:draw_letter_man(x,y)
 					print(high_score_characters[i], x, y, 10)
 				else
 					print(high_score_characters[i], x, y, 7)
@@ -1778,7 +1790,7 @@ score_entry = {
 				color = 10
 			end	
 			
-			print(i.." "..s.." "..concat_score(high_scores[i].kscore,high_scores[i].score),8,82+(8*i),color)
+			print(i.." "..s.." "..concat_score(high_scores[i].kscore,high_scores[i].score),40,82+(8*i),color)
 		end
 	end
 }
