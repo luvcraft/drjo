@@ -143,7 +143,7 @@ end
 -- load high scores
 function load_high_scores()
 	high_scores = {}
-	for i=0,25,5 do		
+	for i=0,20,5 do		
 		local t = {}
 		t.score = dget(i)
 		t.kscore = dget(i+1)
@@ -1654,22 +1654,23 @@ gameover = {
 score_entry = {
 	selected_letter = 1,
 	name_letter = 1,
-	name = {},
+	name = {29,29,29},
 	place = 1,
 
 	start = function(self)
 		game_mode = 5		
 		camera()
 		
+		self.countdown = 60
 		self.selected_letter = 1
 		self.name_letter = 1
-		self.name = {}
+		self.name = {29,29,29}
 		
 		self.place = 0
 		for i=#high_scores,1,-1 do
 			if(kscore > high_scores[i].kscore) then
 				self.place = i
-			elseif(kscore == high_scores[i] and score >high_scores[i].score) then
+			elseif(kscore == high_scores[i].kscore and score > high_scores[i].score) then
 				self.place = i
 			end
 		end
@@ -1677,29 +1678,61 @@ score_entry = {
 		local t = {}
 		t.kscore = kscore
 		t.score = score
-		t.name = {}
-		add(high_scores,t,self.place)
+		t.name = {29,29,29}
+		
+		-- insert by index wouldn't work, so I have to do this instead
+		local new_high_scores = {}
+		for i=1,5 do
+			if(self.place == i) then
+				add(new_high_scores,t)
+			end
+			if(#new_high_scores<5) then
+				add(new_high_scores,high_scores[i])
+			end
+		end
+		
+		high_scores = new_high_scores
+		
 	end,
 
 	update = function(self)
-		if (btnp(0)) then
-			self.selected_letter -= 1
-		elseif (btnp(1)) then 
-			self.selected_letter += 1
-		elseif (btnp(2)) then
-			self.selected_letter -= 10
-		elseif (btnp(3)) then
-			self.selected_letter += 10
-		end
-		
-		if(self.selected_letter < 1) then
-			self.selected_letter += #high_score_characters
-		elseif(self.selected_letter > #high_score_characters) then
-			self.selected_letter -= #high_score_characters
-		end
-		
-		if(btnp(4) or btnp(5)) then
+		if(self.name_letter < 4) then
+			if (btnp(0)) then
+				self.selected_letter -= 1
+			elseif (btnp(1)) then 
+				self.selected_letter += 1
+			elseif (btnp(2)) then
+				self.selected_letter -= 10
+			elseif (btnp(3)) then
+				self.selected_letter += 10
+			end
 			
+			if(self.selected_letter < 1) then
+				self.selected_letter += #high_score_characters
+			elseif(self.selected_letter > #high_score_characters) then
+				self.selected_letter -= #high_score_characters
+			end
+			
+			if(btnp(4) or btnp(5)) then
+				if(self.selected_letter == 30) then
+					if(self.name_letter > 1) then
+						self.name_letter -= 1
+					end
+				else
+					self.name[self.name_letter] = self.selected_letter
+					self.name_letter += 1
+				end
+			end
+			
+			high_scores[self.place].name = self.name
+		else
+			-- name entry done
+			-- do countdown, and then save and return to title
+			self.countdown -= 1
+			if(self.countdown < 0) then
+				save_high_scores()
+				title_screen:start()
+			end
 		end
 	end,
 	
@@ -1709,29 +1742,43 @@ score_entry = {
 		local s = "you got a new high score!"
 		print(s,64-(#s*2),8,10)
 	
-		for i=1,#high_score_characters do
-			local x = (((i-1) % 10) * 8) + 24
-			local y = (flr((i-1)/10) * 12) + 24
-			if(i==self.selected_letter) then
-				spr(50,x-3,y-1)
-				print(high_score_characters[i], x, y, 10)
-			else
-				print(high_score_characters[i], x, y, 7)
+		if(self.name_letter < 4) then
+			for i=1,#high_score_characters do
+				local x = (((i-1) % 10) * 8) + 24
+				local y = (flr((i-1)/10) * 12) + 24
+				if(i==self.selected_letter) then
+					spr(50,x-3,y-1)
+					print(high_score_characters[i], x, y, 10)
+				else
+					print(high_score_characters[i], x, y, 7)
+				end
 			end
 		end
 
+		rect(64-8,62,64+6,70,7)
+
+		for i=1,3 do
+			local color = 10
+			if(i==self.name_letter) then
+				color = rainbow_color
+			end
+			local x = 64-10+(i*4)
+			print(high_score_characters[self.name[i]],x,64,color)
+		end
+
 		s = "high scores:"
-		print(s,64-(#s*2),64,12)
+		print(s,64-(#s*2),80,12)
 		
 		for i=1,#high_scores do
-			if(#high_scores[i].name == 3) then			
-				s = high_score_characters[high_scores[i].name[1]]
-				s = s..high_score_characters[high_scores[i].name[2]] 
-				s = s..high_score_characters[high_scores[i].name[3]] 
-			else
-				s = "___"
-			end
-			print(i.." "..s.." "..concat_score(high_scores[i].kscore,high_scores[i].score),8,64+(8*i),7)
+			s = high_score_characters[high_scores[i].name[1]]
+			s = s..high_score_characters[high_scores[i].name[2]] 
+			s = s..high_score_characters[high_scores[i].name[3]]
+			local color = 7
+			if(i == self.place) then
+				color = 10
+			end	
+			
+			print(i.." "..s.." "..concat_score(high_scores[i].kscore,high_scores[i].score),8,82+(8*i),color)
 		end
 	end
 }
@@ -1743,8 +1790,7 @@ function _init()
 	load_high_scores()
 	
 	cls()
---	title_screen:start()
-	score_entry:start()
+	title_screen:start()
 end
 
 function _update()
