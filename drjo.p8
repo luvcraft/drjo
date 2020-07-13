@@ -16,7 +16,7 @@ explosion_particles = 20
 bonus_letters = {"b","o","n","u","s"}
 rainbow_colors = {8,10,11,12}
 gameover_letters = {64,65,66,67,0,68,69,67,70}
-high_score_characters = { "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", ".", " " }
+high_score_characters = { "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z", ".", "!", "_", "\139" }
 starting_lives = 3
 
 -- max time between coins in a row
@@ -143,13 +143,12 @@ end
 -- load high scores
 function load_high_scores()
 	high_scores = {}
-	for i=0,50,5 do		
+	for i=0,25,5 do		
 		local t = {}
 		t.score = dget(i)
 		t.kscore = dget(i+1)
 		t.name = {dget(i+2), dget(i+3), dget(i+4)}
 		add(high_scores,t)
-		printh("score="..concat_score(t.kscore, t.score).." name="..t.name[1]..","..t.name[2]..","..t.name[3])
 	end
 	
 	-- if high scores are empty, use default ones
@@ -171,7 +170,7 @@ end
 
 -- save high scores
 function save_high_scores()
-	for i=1,10 do
+	for i=1,5 do
 		local n = (i-1)*5
 		dset(n,high_scores[i].score)
 		dset(n+1,high_scores[i].kscore)
@@ -1360,12 +1359,14 @@ function reset_level()
 end
 
 function end_level()
-	-- TODO: play intermission if it's time for one
+	score += 100
 	
 	if(next_bonus_letter > #bonus_letters) then
 	-- TODO: play bonus animation if bonus is full
 		next_bonus_letter = 1
 	end
+
+	-- TODO: play intermission if it's time for one
 	
 	next_level()
 end
@@ -1406,7 +1407,7 @@ end
 
 -- maingame mode
 maingame = {
-	start = function()
+	start = function(self)
 		game_mode = 1
 
 		coin = {}
@@ -1423,9 +1424,7 @@ maingame = {
 		next_level()
 	end,
 
-	update = function()
-		rainbow_color = rainbow_colors[(flr(((time() * 2) %1) * #rainbow_colors))+1]
-
+	update = function(self)
 		crack:update()
 		bomb:update()
 		bat:update()
@@ -1485,7 +1484,7 @@ maingame = {
 			if(lives > 0) then
 				reset_level()
 			else
-				gameover.start()
+				gameover:start()
 			end
 		end
 		
@@ -1502,7 +1501,7 @@ maingame = {
 		end	
 	end,
 	
-	draw = function()
+	draw = function(self)
 		cls()
 		rect((map_w *8)+1,0,127,127-8,6)
 		pal(5,0)
@@ -1566,18 +1565,18 @@ maingame = {
 
 -- title screen mode
 title_screen = {
-	start = function()
+	start = function(self)
 		game_mode = 0
-		camera(0,0)
+		camera()
 	end,
 	
-	update = function()
+	update = function(self)
 		if(btnp(4) or btnp(5)) then 
-			maingame.start()
+			maingame:start()
 		end
 	end,
 	
-	draw = function()
+	draw = function(self)
 		cls()
 	
 		local y = 24
@@ -1614,33 +1613,125 @@ title_screen = {
 gameover = {
 	progress = 0,
 
-	start = function()
+	start = function(self)
 		game_mode = 2
 		
 		music(gameover_music)		
-		progress = 0
+		self.progress = 0
 	end,
 	
-	update = function()
-		progress += 1
-		if(progress > 30 * 4) then
-			-- TODO: go to score entry if high score
-			title_screen.start()
+	update = function(self)
+		self.progress += 1
+		if(self.progress > 30 * 4) then
+			local new_high_score = (kscore > high_scores[#high_scores].kscore) or 
+					(kscore == high_scores[#high_scores].kscore and score > high_scores[#high_scores].score)
+			
+			if (new_high_score) then
+				score_entry:start()
+			else 			
+				title_screen:start()
+			end
 		end
 	end,
 	
-	draw = function()
+	draw = function(self)
 		maingame.draw()
 		local x = (map_w*4) - 37
 		local y = (map_h*4) - 4
-		if(progress < 60) then
-			y -= 60 - progress
+		if(self.progress < 60) then
+			y -= 60 - self.progress
 		end
 		
 		for i=1,#gameover_letters do
 			if(gameover_letters[i] > 0) then
 				spr(gameover_letters[i], x + 6*i, y)
 			end
+		end
+	end
+}
+
+-- high score entry mode
+score_entry = {
+	selected_letter = 1,
+	name_letter = 1,
+	name = {},
+	place = 1,
+
+	start = function(self)
+		game_mode = 5		
+		camera()
+		
+		self.selected_letter = 1
+		self.name_letter = 1
+		self.name = {}
+		
+		self.place = 0
+		for i=#high_scores,1,-1 do
+			if(kscore > high_scores[i].kscore) then
+				self.place = i
+			elseif(kscore == high_scores[i] and score >high_scores[i].score) then
+				self.place = i
+			end
+		end
+		
+		local t = {}
+		t.kscore = kscore
+		t.score = score
+		t.name = {}
+		add(high_scores,t,self.place)
+	end,
+
+	update = function(self)
+		if (btnp(0)) then
+			self.selected_letter -= 1
+		elseif (btnp(1)) then 
+			self.selected_letter += 1
+		elseif (btnp(2)) then
+			self.selected_letter -= 10
+		elseif (btnp(3)) then
+			self.selected_letter += 10
+		end
+		
+		if(self.selected_letter < 1) then
+			self.selected_letter += #high_score_characters
+		elseif(self.selected_letter > #high_score_characters) then
+			self.selected_letter -= #high_score_characters
+		end
+		
+		if(btnp(4) or btnp(5)) then
+			
+		end
+	end,
+	
+	draw = function(self)
+		cls()
+	
+		local s = "you got a new high score!"
+		print(s,64-(#s*2),8,10)
+	
+		for i=1,#high_score_characters do
+			local x = (((i-1) % 10) * 8) + 24
+			local y = (flr((i-1)/10) * 12) + 24
+			if(i==self.selected_letter) then
+				spr(50,x-3,y-1)
+				print(high_score_characters[i], x, y, 10)
+			else
+				print(high_score_characters[i], x, y, 7)
+			end
+		end
+
+		s = "high scores:"
+		print(s,64-(#s*2),64,12)
+		
+		for i=1,#high_scores do
+			if(#high_scores[i].name == 3) then			
+				s = high_score_characters[high_scores[i].name[1]]
+				s = s..high_score_characters[high_scores[i].name[2]] 
+				s = s..high_score_characters[high_scores[i].name[3]] 
+			else
+				s = "___"
+			end
+			print(i.." "..s.." "..concat_score(high_scores[i].kscore,high_scores[i].score),8,64+(8*i),7)
 		end
 	end
 }
@@ -1652,16 +1743,21 @@ function _init()
 	load_high_scores()
 	
 	cls()
-	title_screen.start()
+--	title_screen:start()
+	score_entry:start()
 end
 
 function _update()
+	rainbow_color = rainbow_colors[(flr(((time() * 2) %1) * #rainbow_colors))+1]
+
 	if(game_mode == 0) then
-		title_screen.update()
+		title_screen:update()
 	elseif(game_mode == 1) then
-		maingame.update()
+		maingame:update()
 	elseif(game_mode == 2) then
-		gameover.update()
+		gameover:update()
+	elseif(game_mode == 5) then
+		score_entry:update()
 	end
 	
 	-- move thousands+ digits of score into kscore
@@ -1673,11 +1769,13 @@ end
 
 function _draw()
 	if(game_mode == 0) then
-		title_screen.draw()
+		title_screen:draw()
 	elseif(game_mode == 1) then
-		maingame.draw()
+		maingame:draw()
 	elseif(game_mode == 2) then
-		gameover.draw()
+		gameover:draw()
+	elseif(game_mode == 5) then
+		score_entry:draw()
 	end
 
 end
