@@ -1,8 +1,8 @@
 pico-8 cartridge // http://www.pico-8.com
 version 27
 __lua__
--- Dr Jo
--- by R. Hunter Gough (luvcraft)
+-- dr jo
+-- by r. hunter gough (luvcraft)
 
 -- constants
 boulder_fall_state = 8
@@ -16,7 +16,7 @@ explosion_particles = 16
 bonus_letters = {"b","o","n","u","s"}
 rainbow_colors = {8,10,11,12}
 gameover_letters = {64,65,66,67,0,68,69,67,70}
-starting_lives = 0
+starting_lives = 3
 
 -- max time between coins in a row
 coin_countdown_max = 20
@@ -1501,6 +1501,8 @@ title_screen = {
 	end,
 	
 	draw = function()
+		cls()
+	
 		local y = 24
 		local stripes_x = (-time()*16)%8
 	
@@ -1519,7 +1521,7 @@ title_screen = {
 		
 		pal()
 		
-		print("press \151 to start!",24,96,7)
+		print("press \142 or \151 to start!",16,96,7)
 	end
 }
 
