@@ -159,15 +159,15 @@ function load_high_scores()
 	
 	-- if high scores are empty, use default ones
 	if(high_scores[1].score == 0 and high_scores[1].kscore == 0) then
-		high_scores[1].kscore = 10
+		high_scores[1].kscore = 6
 		high_scores[1].name = { 18,8,7 }								
-		high_scores[2].kscore = 9
+		high_scores[2].kscore = 5
 		high_scores[2].name = high_scores[1].name
-		high_scores[3].kscore = 8
+		high_scores[3].kscore = 4
 		high_scores[3].name = high_scores[1].name
-		high_scores[4].kscore = 7
+		high_scores[4].kscore = 3
 		high_scores[4].name = high_scores[1].name
-		high_scores[5].kscore = 6
+		high_scores[5].kscore = 2
 		high_scores[5].name = high_scores[1].name
 		
 		save_high_scores()
