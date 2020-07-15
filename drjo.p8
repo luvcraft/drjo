@@ -1429,6 +1429,7 @@ maingame = {
 		
 		lives = starting_lives
 		score = 0
+		kscore = 0
 		current_level = 0
 		
 		next_level()
@@ -1580,6 +1581,8 @@ maingame = {
 title_screen = {
 	start = function(self)
 		game_mode = 0
+		
+		music(-1)
 		camera()
 	end,
 	
