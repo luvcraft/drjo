@@ -838,7 +838,7 @@ bomb = {
 		
 		-- if explosion hits a monster, kill the monster
 		for m in all(monster) do
-			if(abs(self.x * 8 - m.x) <= 8 and abs(self.y * 8 - m.y) <= 8) then
+			if(abs(self.x * 8 - m.x) <= 12 and abs(self.y * 8 - m.y) <= 12) then
 				point_value += 10
 				score += point_value
 				
@@ -1653,7 +1653,9 @@ intermission = {
 	--- 3 = jo continues running
 	--- 4 = monster looks at bomb
 	--- 5 = bomb explodes
-	--- 6 = tiny monster blinks	
+	--- 6 = tiny monster blinks
+	--- 7 = bat
+	--- 8 = end
 
 	start = function(self)
 		game_mode = 3	
@@ -1661,10 +1663,9 @@ intermission = {
 		music(intermission_music)
 		self.state = -1
 		self.jo_x = -16
-		self.jo_y = 0
-		
+		self.jo_y = 0		
 		self.monster_x = -80
-				
+		self.bat_x = -8
 		self.state_wait = 0
 	end,
 	
@@ -1704,6 +1705,11 @@ intermission = {
 				self.state += 1
 				self.state_wait = 0
 			end
+		elseif(self.state == 7) then
+			self.bat_x += 1.5
+			if(self.bat_x >= 128+8) then
+				self.state += 1
+			end
 		elseif(self.state > 3) then
 			self.state_wait += 1
 			if(self.state_wait > 60) then
@@ -1722,7 +1728,7 @@ intermission = {
 			end
 		end
 		
-		if(self.state == 7) then
+		if(self.state == 8) then
 			next_level()
 		end
 	end,
@@ -1733,7 +1739,11 @@ intermission = {
 		local run_frame = flr(time()*8)%4
 	
 		local s = "intermission"
-		print(s,64-(#s*2),32,10)
+		if(self.state < 0) then
+			print(s,64-(#s*2),64-(self.state_wait/2),rainbow_color)
+		else
+			print(s,64-(#s*2),32,10)
+		end
 
 		-- draw bomb
 		if(self.state > 1 and self.state < 5) then
@@ -1779,7 +1789,7 @@ intermission = {
 			end
 		elseif(self.state == 5) then
 			spr(36,self.monster_x+4,self.y_plane-8)
-		elseif(self.state == 6) then
+		elseif(self.state > 5) then
 			spr(40,self.monster_x+4,self.y_plane-8)
 			if(self.state_wait > 20 and self.state_wait < 30) then
 				-- blink
@@ -1798,6 +1808,14 @@ intermission = {
 		-- draw explosion
 		if(self.state == 5) then
 			circfill(self.bomb_x+4,self.y_plane-4,(30-self.state_wait),rainbow_color)
+		end
+		
+		-- draw bat
+		if(self.state == 7) then
+			spr(43+run_frame%2,self.bat_x,self.y_plane-24)
+			
+			local s = "follow bats to hidden treasure!"
+			print(s,64-(#s*2),self.y_plane+16,12)
 		end
 		
 	end,
@@ -1848,8 +1866,8 @@ extra_life = {
 			-- draw letters
 			for i=1,#letters do
 				local a=(i+time()*1.5)/-5
-				local x=64 + sin(a)*16*self.progress
-				local y=48 - cos(a)*16*self.progress
+				local x=64 + sin(a)*24*self.progress
+				local y=48 - cos(a)*8*self.progress
 				
 				print(letters[i],x,self.hat_y+8-(y*self.progress),1)
 			end
@@ -2250,6 +2268,7 @@ __sfx__
 01100010104531045300000104530e4530e453000000e4530c4530c453000000b453000000b4530b4530000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 0110000015450000001545515450184500000015450000000000000000154500000017450000001845000000184500000018455184501c450000001845000000000000000018450000001a450000001c45000000
 011000001d450000001d4551d45021450000001d4500000000000000001d450000001f4500000021450000001c450000001c4551c4501a450000001a4551a4501845000000184551845017450000001845000000
+011000001545000000154551545018450000001545000000000000000018450000001745000000184500000015450154501545015450000000000015455154551545500000000000000000000000000000000000
 010800081163000000000000000011635000001163500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 __music__
 00 41044344
@@ -2277,6 +2296,7 @@ __music__
 00 12424344
 04 13424344
 00 14004344
-01 15174344
-02 16174344
+00 15184344
+00 16184344
+04 17184344
 
