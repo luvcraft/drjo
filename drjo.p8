@@ -2,7 +2,7 @@ pico-8 cartridge // http://www.pico-8.com
 version 27
 __lua__
 -- dr jo
--- by r. hunter gough (luvcraft)
+-- by r. hunter gough / studio hunty
 
 -- constants
 boulder_fall_state = 8
@@ -30,6 +30,9 @@ map_w = 12
 map_h = 15
 max_spr_x = (map_w-1) * 8
 max_spr_y = (map_h-1) * 8
+
+bomb_sidebar_x = max_spr_x + 19
+bomb_sidebar_y = 44
 
 max_levels = 8
 
@@ -851,23 +854,23 @@ bomb = {
 	end,
 	
 	draw = function(self)
+		if(time() % 0.5 < 0.25) then
+				pal(5,8)
+		end
+		
 		if(self.state == 0) then
 			if(self.cooldown <= 0) then
-				-- if bomb is available, draw bomb at 0,-8
-				spr(23,0,-8)
+				-- if bomb is available, draw bomb on sidebar
+				spr(23,bomb_sidebar_x, bomb_sidebar_y)
 			end
 		elseif(self.state == 1) then
-			if(time() % 0.5 < 0.25) then
-				pal(5,8)
-			end
-			
 			spr(23,self.x*8,self.y*8)
-			pal()
 		elseif(self.state >= 2) then
 			r = (3-self.state) * 12
 			circfill((self.x*8)+4,(self.y*8)+4,r,8)
 			circfill((self.x*8)+4,(self.y*8)+4,r/2,9)
 		end
+		pal()
 	end
 }
 
@@ -1543,6 +1546,7 @@ maingame = {
 		
 		explosion:draw()
 		
+		-- draw sidebar
 		print("score:\n"..concat_score(kscore,score),(map_w*8)+3,3,7)
 		
 		local bonus_y = 20
@@ -1560,7 +1564,9 @@ maingame = {
 		spr(10,(map_w*8)+7,33)
 		print("X"..lives,(map_w*8)+7+9,32,7)
 		
-		print("level:\n"..current_level,(map_w*8)+3,44,7)
+		rect(bomb_sidebar_x-1, bomb_sidebar_y-1, bomb_sidebar_x+8,  bomb_sidebar_y+8,6)
+		
+		print("level:\n"..current_level,(map_w*8)+3,120-13-16,7)
 		
 		print("high:\n"..concat_score(high_scores[1].kscore,high_scores[1].score),(map_w*8)+3,120-13,7)
 		
@@ -1605,7 +1611,7 @@ title_screen = {
 		local s = "press \142 or \151 to start!"
 		print(s,64-(#s*2),64,7)
 		
-		s = "r.hunter gough presents"
+		s = "studio hunty presents"
 		print(s,64-(#s*2),0,13)
 		
 		rect(2,78,126,127,5)
