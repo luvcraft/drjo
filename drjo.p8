@@ -488,7 +488,7 @@ hero = {
 monster_proto = {
 	facing = 0,
 	speed = 1,
-	digging = false,
+	ghostly = false,
 	movestyle = 0,
 	-- movestyle
 	--- 0 = erratic
@@ -521,20 +521,20 @@ monster_proto = {
 				end
 			end
 			
-			if(self.digging) then
-				if(mget(self.x/8,self.y/8) > 0) then
-					mset(self.x/8,self.y/8,0)
-					if(self.x <= 0 and self.facing == 3) then
-						self.facing = 1
-					elseif(self.x >= map_w*8 and self.facing == 1) then
-						self.facing = 3
-					end
-					
-					add(potential_directions,self.facing)
-					speed = self.speed * 0.7
-				else
-					self.digging = false
+			if(self.ghostly) then
+				local map_y = roundtonearest(self.y,8)/8
+				local map_x = roundtonearest(self.x,8)/8
+				
+				if(mget(map_x,map_y) == 0) then
+					self.ghostly = false
+				elseif(self.facing == 1 and map_x >= map_w-1) then
+					self.facing = 3
+				elseif(self.facing == 3 and map_x <= 0) then
+					self.facing = 1
 				end
+				
+				add(potential_directions,self.facing)
+				speed = self.speed * 0.7			
 			elseif(self.movestyle == 0) then
 				-- erratic movestyle. 
 				-- Can reverse at any time, but less likely than other moves					
@@ -661,7 +661,7 @@ monster_proto = {
 			sprite = 40 + (frame % 2)
 		end
 		
-		if(self.digging) then
+		if(self.ghostly) then
 			pal(8,12)
 		end
 		spr(sprite,self.x,self.y,1,1,flip)
@@ -1356,7 +1356,7 @@ function swap_monsters_and_boulders()
 			p.y = roundtonearest(b.y,8)/8
 			local m = monster_proto:instantiate(p.x,p.y,monster_default_movestyle)
 			if(mget(p.x,p.y) > 0) then
-				m.digging = true
+				m.ghostly = true
 				if(p.x > map_w/2) then
 					m.facing = 3
 				else
