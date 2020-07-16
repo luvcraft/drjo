@@ -499,9 +499,7 @@ monster_proto = {
 		self:move()
 		
 		-- if this monster has caught the hero, hero dies
-		if(self.x == hero.x and inrange(self.y-hero.y,-4,4)) then
-			hero:die()
-		elseif(self.y == hero.y and inrange(self.x-hero.x,-4,4)) then
+		if(inrange(self.x-hero.x,-4,4) and inrange(self.y-hero.y,-4,4)) then
 			hero:die()
 		end
 	end,
@@ -533,8 +531,10 @@ monster_proto = {
 					self.facing = 1
 				end
 				
-				add(potential_directions,self.facing)
-				speed = self.speed * 0.7			
+				if(self.ghostly) then
+					add(potential_directions,self.facing)
+					speed = self.speed * 0.7
+				end
 			elseif(self.movestyle == 0) then
 				-- erratic movestyle. 
 				-- Can reverse at any time, but less likely than other moves					
@@ -604,11 +604,14 @@ monster_proto = {
 			end
 		end
 		
-		self.x = minmax(self.x,0,max_spr_x)
-		self.y = minmax(self.y,-8,max_spr_y)
+		if(self.facing == 1 or self.facing == 3) then
+			self.y = roundtonearest(self.y,8)
+		else
+			self.x = roundtonearest(self.x,8)
+		end
 		
-		local tile_x = roundtonearest(self.x, 8)/8
-		local tile_y = roundtonearest(self.y, 8)/8
+		self.x = minmax(self.x,0,max_spr_x)
+		self.y = minmax(self.y,-8,max_spr_y)		
 	end,
 	
 	-- check for a wall in the specified direction
@@ -849,7 +852,7 @@ bomb = {
 		-- if explosion hits a monster, kill the monster
 		for m in all(monster) do
 			if(abs(self.x * 8 - m.x) <= 12 and abs(self.y * 8 - m.y) <= 12) then
-				point_value += 10
+				point_value += 25
 				score += point_value
 				
 				m:die(point_value)
@@ -1080,7 +1083,7 @@ boulder_proto = {
 			-- if boulder hits a monster, kill the monster
 			for m in all(monster) do
 				if(inrange(self.x - m.x,-6,6) and inrange(self.y - m.y,-6,6)) then
-					self.point_value += 10
+					self.point_value += 25
 					score += self.point_value
 					
 					m:die(self.point_value)
