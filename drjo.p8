@@ -661,7 +661,11 @@ monster_proto = {
 			sprite = 40 + (frame % 2)
 		end
 		
+		if(self.digging) then
+			pal(8,12)
+		end
 		spr(sprite,self.x,self.y,1,1,flip)
+		pal()
 	end,
 	
 	-- instantiate a monster from this prototype
@@ -793,11 +797,10 @@ bomb = {
 	end,
 	
 	update = function(self)
-		if(level_won) then
-			return
-		end
-	
 		if(self.state == 0) then
+			if(level_won or hero.dying>0) then
+				return
+			end
 			-- if no bomb is set, decrease cooldown timer
 			if(self.cooldown > 0) then
 				self.cooldown -= 1
@@ -1332,6 +1335,8 @@ end
 
 -- swap monsters and boulders. Happens when hero collects treasure
 function swap_monsters_and_boulders()
+	sfx(43,3)
+
 	local pos = {}
 	
 	for m in all(monster) do
@@ -1345,7 +1350,6 @@ function swap_monsters_and_boulders()
 	
 	for b in all(boulder) do
 		local m = monster_proto:instantiate(b.x/8,b.y/8,monster_default_movestyle)
-		add(monster, m)
 		if(mget(b.x/8,b.y/8) > 0) then
 			m.digging = true
 			if(b.x/8 > map_w/2) then
@@ -1354,6 +1358,7 @@ function swap_monsters_and_boulders()
 				m.facing = 1
 			end
 		end
+		add(monster, m)
 	end
 
 	dead_monsters = max_monsters - #monster
@@ -2304,6 +2309,7 @@ __sfx__
 011400001f345000001c345000001f345000001c345003051f3401d3411c3311a3211831100305003050030500305003050030500305003050030500305003050030500305003050030500305003050000000000
 011000000c65318553235530000300003000030000300003000030000300003000030000300003000030000300003000030000300003000030000300003000030000300003000030000300003000030000300003
 010c0000210531a053180530000300003000030000300003000030000300003000030000300003000030000300003000030000300003000030000300003000030000300003000030000300003000000000000000
+0108000021452004021d452004021d45200402214521d4021d4522145224452004020040200402004020040200402004020040200402004020040200402004020040200402004020040200402004020040200402
 __music__
 00 41044344
 00 41054344
