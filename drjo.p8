@@ -1936,7 +1936,7 @@ extra_life = {
 		
 			-- draw letters
 			for i=1,#letters do
-				local a=(i+time()*1.5)/-5
+				local a=(i+time()*1.5)/5
 				local x=64 + sin(a)*24*self.progress
 				local y=64 - cos(a)*8*self.progress
 				
@@ -2073,6 +2073,7 @@ score_entry = {
 				if(self.selected_letter == 30) then
 					if(self.name_letter > 1) then
 						self.name_letter -= 1
+						self.name[self.name_letter] = 29
 					end
 				else
 					self.name[self.name_letter] = self.selected_letter
