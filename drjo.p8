@@ -2,7 +2,7 @@ pico-8 cartridge // http://www.pico-8.com
 version 27
 __lua__
 -- dr jo
--- by r. hunter gough / studio hunty
+-- r. hunter gough / studio hunty
 
 -- constants
 boulder_fall_state = 8
