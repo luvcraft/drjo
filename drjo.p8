@@ -213,7 +213,7 @@ function boulder_check(character, dir)
 			return 1
 		else
 			for b in all(boulder) do
-				if(character.x==b.x and inrange(character.y - b.y,8)) then
+				if(roundtonearest(character.x,8) == roundtonearest(b.x,8) and inrange(character.y - b.y,8)) then
 					-- boulder in the way vertically. return blocked!
 					return 1
 				end
@@ -224,7 +224,7 @@ function boulder_check(character, dir)
 			return 1
 		else
 			for b in all(boulder) do
-				if(character.y==b.y and inrange(b.x - character.x,8)) then
+				if(roundtonearest(character.y,8) == roundtonearest(b.y,8) and inrange(b.x - character.x,8)) then
 					if(b:blocked(dir) !=0 or b.state > 0) then
 						return 1
 					elseif(roundtonearest(hero.y,8) == b.y and inrange(hero.x - b.x,8)) then
@@ -240,7 +240,7 @@ function boulder_check(character, dir)
 			return 1
 		else
 			for b in all(boulder) do
-				if(character.x==b.x and inrange(b.y - character.y,8)) then
+				if(roundtonearest(character.x,8) == roundtonearest(b.x,8) and inrange(b.y - character.y,8)) then
 					-- boulder in the way vertically. return blocked!
 					return 1
 				end
@@ -251,7 +251,7 @@ function boulder_check(character, dir)
 			return 1
 		else
 			for b in all(boulder) do
-				if(character.y==b.y and inrange(character.x - b.x,8)) then
+				if(roundtonearest(character.y,8) == roundtonearest(b.y,8) and inrange(character.x - b.x,8)) then
 					if(b:blocked(dir) !=0 or b.state > 0) then
 						return 1
 					elseif(roundtonearest(hero.y,8) == b.y and inrange(b.x - hero.x,8)) then
@@ -1337,38 +1337,40 @@ end
 function swap_monsters_and_boulders()
 	sfx(43,3)
 
-	local pos = {}
+	local p = {}
+	local new_boulders = {}
 	
 	for m in all(monster) do
-		local p = {}
 		p.x = roundtonearest(m.x,8)/8
 		p.y = roundtonearest(m.y,8)/8
-		add(pos,p)
+		add(new_boulders, boulder_proto:instantiate(p.x,p.y))
 	end
 	
 	monster = {}
 	
 	for b in all(boulder) do
-		local m = monster_proto:instantiate(b.x/8,b.y/8,monster_default_movestyle)
-		if(mget(b.x/8,b.y/8) > 0) then
-			m.digging = true
-			if(b.x/8 > map_w/2) then
-				m.facing = 3
-			else
-				m.facing = 1
+		if(b.state > 0) then
+			add(new_boulders,b)
+		else
+			p.x = roundtonearest(b.x,8)/8
+			p.y = roundtonearest(b.y,8)/8
+			local m = monster_proto:instantiate(p.x,p.y,monster_default_movestyle)
+			if(mget(p.x,p.y) > 0) then
+				m.digging = true
+				if(p.x > map_w/2) then
+					m.facing = 3
+				else
+					m.facing = 1
+				end
 			end
+			add(monster, m)
 		end
-		add(monster, m)
 	end
 
 	dead_monsters = max_monsters - #monster
 	
-	boulder = {}
-	
-	for p in all(pos) do
-		add(boulder, boulder_proto:instantiate(p.x,p.y))
-	end
-	
+	boulder = new_boulders
+		
 	letter_man:start()
 end
 
@@ -1452,6 +1454,7 @@ maingame = {
 		score = 0
 		kscore = 0
 		current_level = 0
+		next_bonus_letter = 1
 		
 		next_level()
 	end,
